@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  wardrobe Wardrobe?
+  outfits  Outfit[]
+}
+
+model Wardrobe {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items GarmentItem[]
+}
+
+model GarmentItem {
+  id         String   @id @default(uuid())
+  wardrobeId String
+  wardrobe   Wardrobe @relation(fields: [wardrobeId], references: [id], onDelete: Cascade)
+
+  category  String
+  brand     String?
+  colors    String[]
+  seasons   String[]
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  photos  ItemPhoto[]
+  tags    ItemTag[]
+  outfits OutfitItem[]
+}
+
+model ItemPhoto {
+  id            String      @id @default(uuid())
+  garmentItemId String
+  garmentItem   GarmentItem @relation(fields: [garmentItemId], references: [id], onDelete: Cascade)
+  url           String
+  isCover       Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  items ItemTag[]
+}
+
+model ItemTag {
+  id            String      @id @default(uuid())
+  garmentItemId String
+  tagId         String
+  garmentItem   GarmentItem @relation(fields: [garmentItemId], references: [id], onDelete: Cascade)
+  tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([garmentItemId, tagId])
+}
+
+model Outfit {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String?
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items OutfitItem[]
+}
+
+model OutfitItem {
+  id            String      @id @default(uuid())
+  outfitId      String
+  garmentItemId String
+  outfit        Outfit      @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  garmentItem   GarmentItem @relation(fields: [garmentItemId], references: [id], onDelete: Cascade)
+
+  // slot defines where the item goes, e.g., 'top', 'bottom', 'shoes', 'accessory'
+  slot String?
+
+  @@unique([outfitId, garmentItemId])
+}
