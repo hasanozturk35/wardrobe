@@ -16,8 +16,21 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  wardrobe Wardrobe?
-  outfits  Outfit[]
+  wardrobe      Wardrobe?
+  outfits       Outfit[]
+  avatar        Avatar?
+  calendarEvents CalendarEvent[]
+}
+
+model Avatar {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url       String?
+  status    String   @default("pending") // pending, ready, failed
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Wardrobe {
@@ -39,6 +52,7 @@ model GarmentItem {
   brand     String?
   colors    String[]
   seasons   String[]
+  meshUrl   String?
   pinned    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -81,11 +95,13 @@ model Outfit {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String?
   description String?
+  coverUrl    String?
   isPublic    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  items OutfitItem[]
+  items          OutfitItem[]
+  calendarEvents CalendarEvent[]
 }
 
 model OutfitItem {
@@ -99,4 +115,15 @@ model OutfitItem {
   slot String?
 
   @@unique([outfitId, garmentItemId])
+}
+
+model CalendarEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfitId  String
+  outfit    Outfit   @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  date      DateTime // Represents the day (YYYY-MM-DD T00:00:00.000Z)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

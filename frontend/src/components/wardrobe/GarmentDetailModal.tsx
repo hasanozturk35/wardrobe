@@ -1,16 +1,15 @@
-import React from 'react';
-import type { GarmentItem } from '../../store/wardrobeStore';
 import { X, Trash2, Edit2, Info } from 'lucide-react';
+import { getImageUrl } from '../../config';
 
 interface GarmentDetailModalProps {
-    item: GarmentItem;
+    item: any; // Using any for now to match the dynamic item structure from backend
     onClose: () => void;
     onDelete?: (id: string) => void;
-    onEdit?: (item: GarmentItem) => void;
+    onEdit?: (item: any) => void;
 }
 
 const GarmentDetailModal: React.FC<GarmentDetailModalProps> = ({ item, onClose, onDelete, onEdit }) => {
-    const imageUrl = item.photos && item.photos.length > 0 ? item.photos[0].url : 'https://placehold.co/600x800/eeeeee/999999?text=No+Photo';
+    const imageUrl = getImageUrl(item.photos?.[0]?.url);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -49,7 +48,7 @@ const GarmentDetailModal: React.FC<GarmentDetailModalProps> = ({ item, onClose, 
                             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                                 <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1">Renkler</span>
                                 <div className="flex flex-wrap gap-2 mt-2">
-                                    {item.colors ? item.colors.map(color => (
+                                    {item.colors ? item.colors.map((color: string) => (
                                         <span key={color} className="inline-block px-2 py-1 bg-white border border-gray-200 rounded-md text-sm font-medium">
                                             {color}
                                         </span>

@@ -10,7 +10,7 @@ interface StudioState {
     wearItem: (item: GarmentItem) => void;
     removeItem: (category: 'top' | 'bottom' | 'shoes') => void;
     clearAll: () => void;
-    saveOutfit: (name: string, description?: string) => Promise<boolean>;
+    saveOutfit: (name: string, description?: string, coverImage?: string | null) => Promise<boolean>;
 }
 
 export const useStudioStore = create<StudioState>((set, get) => ({
@@ -22,22 +22,19 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     wearItem: (item) => set((state) => {
         // MVP: Simple logic to map category to top/bottom/shoes
         const categoryGroups: Record<string, 'top' | 'bottom' | 'shoes'> = {
+            'Üst Giyim': 'top',
+            'Dış Giyim': 'top',
+            'Alt Giyim': 'bottom',
+            'Ayakkabı': 'shoes',
+            'Aksesuar': 'top', // default
+            // Fallbacks for older dummy data
             'T-Shirt': 'top',
             'Sweater': 'top',
             'Shirt': 'top',
-            'Blouse': 'top',
-            'Jacket': 'top',
-            'Coat': 'top',
-            'Hoodie': 'top',
             'Pants': 'bottom',
             'Jeans': 'bottom',
-            'Shorts': 'bottom',
-            'Skirt': 'bottom',
             'Sneakers': 'shoes',
-            'Boots': 'shoes',
             'Shoes': 'shoes',
-            'Heels': 'shoes',
-            'Sandals': 'shoes',
         };
 
         // Default to top if not found
@@ -63,7 +60,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
             shoes: null,
         }
     }),
-    saveOutfit: async (name, description) => {
+    saveOutfit: async (name, description, coverImage) => {
         try {
             const state = get();
             const items = [];
@@ -81,7 +78,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ name, description, items })
+                body: JSON.stringify({ name, description, items, coverImage })
             });
 
             if (res.ok) {

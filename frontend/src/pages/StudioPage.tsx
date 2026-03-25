@@ -1,82 +1,145 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import AvatarViewer from '../components/studio/AvatarViewer';
+import type { AvatarViewerRef } from '../components/studio/AvatarViewer';
 import WardrobeMiniPanel from '../components/studio/WardrobeMiniPanel';
-import { ArrowLeft, Share2, Save, Sparkles } from 'lucide-react';
+import { Share2, Save, Sparkles, UploadCloud, Menu, Plus } from 'lucide-react';
 import { useStudioStore } from '../store/studioStore';
-import { useNavigate } from 'react-router-dom';
+import { AIChat } from '../components/shared/AIChat';
+import { API_URL } from '../config';
 
 const StudioPage: React.FC = () => {
-    const navigate = useNavigate();
     const [isPanelOpen, setIsPanelOpen] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const viewerRef = useRef<AvatarViewerRef>(null);
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.name.toLowerCase().endsWith('.glb')) {
+            alert('Lütfen sadece .glb uzantılı 3D avatar dosyası yükleyin.');
+            return;
+        }
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('glb', file);
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/avatar/upload`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            if (res.ok) {
+                alert('Avatar başarıyla yüklendi!');
+                window.location.reload();
+            } else {
+                const errorData = await res.json();
+                alert(`Yükleme hatası: ${errorData.message || 'Bilinmeyen hata'}`);
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Avatar yüklenirken bir hata oluştu.');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
 
     return (
-        <div className="h-screen w-full bg-gray-50 flex flex-col overflow-hidden">
-            {/* Studio Header */}
-            <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-20 pointer-events-none">
-                <button
-                    onClick={() => navigate('/wardrobe')}
-                    className="pointer-events-auto w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-xl border border-gray-100 hover:scale-105 active:scale-95 transition-all"
-                >
-                    <ArrowLeft className="w-6 h-6 text-gray-900" />
-                </button>
+        <div className="h-screen w-full bg-transparent flex flex-col overflow-hidden relative">
+            <AIChat />
 
-                <div className="flex space-x-3 pointer-events-auto">
-                    <button className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-xl border border-gray-100 hover:scale-105 active:scale-95 transition-all text-gray-600">
-                        <Share2 className="w-5 h-5" />
-                    </button>
+            {/* Boutique Studio Header */}
+            <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-center z-30 pointer-events-none">
+                <button className="pointer-events-auto w-12 h-12 bg-white/80 backdrop-blur-md border border-white/60 rounded-2xl flex items-center justify-center shadow-sm hover:scale-105 transition-all">
+                    <Menu size={20} className="text-gray-900" />
+                </button>
+                
+                <div className="text-center">
+                    <h1 className="text-5xl font-light font-serif text-gray-900 tracking-tighter mb-2">3D Studio</h1>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-500 opacity-70">Design your perfect silhouette</p>
+                </div>
+
+                <div className="flex gap-4 pointer-events-auto">
+                    <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} accept=".glb" className="hidden" />
                     <button
-                        onClick={async () => {
-                            const success = await useStudioStore.getState().saveOutfit('Yeni Kombin');
-                            if (success) {
-                                alert('Kombin başarıyla kaydedildi!');
-                            } else {
-                                alert('Kombin kaydedilemedi veya boş.');
-                            }
-                        }}
-                        className="px-6 h-12 bg-black text-white rounded-2xl flex items-center space-x-2 shadow-xl hover:bg-gray-800 active:scale-95 transition-all font-bold"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="w-12 h-12 bg-white/80 backdrop-blur-md border border-white/60 rounded-2xl flex items-center justify-center shadow-sm hover:scale-105 transition-all group"
+                        title="Upload Avatar"
                     >
-                        <Save className="w-5 h-5" />
-                        <span>Kombini Kaydet</span>
+                        <UploadCloud size={20} className={`text-gray-900 ${isUploading ? 'animate-bounce' : ''}`} />
+                    </button>
+                    <button 
+                        onClick={() => setIsPanelOpen(!isPanelOpen)}
+                        className="w-12 h-12 bg-white/80 backdrop-blur-md border border-white/60 rounded-2xl flex items-center justify-center shadow-sm hover:scale-105 transition-all"
+                        title="Toggle Wardrobe"
+                    >
+                        <Plus size={20} className={`text-gray-900 transition-transform ${isPanelOpen ? 'rotate-45' : ''}`} />
                     </button>
                 </div>
             </div>
 
             {/* Main Studio Area */}
             <div className="flex-1 relative flex">
-                {/* 3D Viewer Container */}
-                <div className="flex-1 relative bg-gradient-to-b from-gray-100 to-gray-200">
-                    <AvatarViewer />
+                <div className="flex-1 relative bg-white">
+                    <AvatarViewer ref={viewerRef} />
 
-                    {/* Overlay Info/Tips */}
-                    <div className="absolute bottom-10 left-10 p-4 bg-white/30 backdrop-blur-md rounded-2xl border border-white/20 text-gray-800 max-w-xs">
-                        <div className="flex items-center space-x-2 mb-1">
-                            <Sparkles className="w-4 h-4 text-yellow-600" />
-                            <span className="text-xs font-bold uppercase tracking-wider">AI Studio Alpha</span>
+                    {/* Floating Save Button */}
+                    <div className="absolute bottom-12 right-12 z-20">
+                        <button
+                            onClick={async () => {
+                                const name = window.prompt("Kombin (Lookbook) adını giriniz:", "Benim Kombinim");
+                                if (!name) return;
+                                const snapshot = viewerRef.current?.captureSnapshot() || null;
+                                const success = await useStudioStore.getState().saveOutfit(name, undefined, snapshot);
+                                if (success) {
+                                    alert('Kombin tarzınız başarıyla Lookbook\'a kaydedildi! 🔖');
+                                } else {
+                                    alert('Üzerinizde kıyafet yok veya kaydetme hatası!');
+                                }
+                            }}
+                            className="btn-glass bg-black text-white px-8 py-5 hover:scale-105 shadow-[0_20px_40px_rgba(0,0,0,0.3)] group overflow-hidden relative"
+                        >
+                            <span className="relative z-10 flex items-center gap-3 font-serif italic text-lg tracking-wide">
+                                <Save size={20} />
+                                Store Look
+                            </span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+                        </button>
+                    </div>
+
+                    {/* Immersive Badge */}
+                    <div className="absolute bottom-12 left-12 p-6 bg-white/10 backdrop-blur-3xl rounded-[2.5rem] border border-white/20 text-gray-800 max-w-xs shadow-2xl">
+                        <div className="flex items-center space-x-3 mb-2">
+                            <Sparkles className="w-5 h-5 text-indigo-400" />
+                            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-900/60">Reality Engine 2.0</span>
                         </div>
-                        <p className="text-sm font-medium">Avatarı döndürmek için kaydırın, kıyafetleri denemek için yan paneli kullanın.</p>
+                        <p className="text-sm font-serif italic text-gray-900/80 leading-relaxed">Interactive fabric simulation and real-time lighting for the ultimate boutique experience.</p>
                     </div>
                 </div>
 
-                {/* Side Panel: Wardrobe Hızlı Seçim */}
+                {/* Side Panel: Wardrobe Mini Panel */}
                 <div
-                    className={`h-full bg-white border-l border-gray-100 shadow-2xl transition-all duration-500 ease-in-out z-10 ${isPanelOpen ? 'w-96' : 'w-0 overflow-hidden'
+                    className={`h-full bg-white/80 backdrop-blur-3xl border-l border-white/40 shadow-2xl transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] z-40 ${isPanelOpen ? 'w-[450px]' : 'w-0 overflow-hidden'
                         }`}
                 >
-                    <WardrobeMiniPanel />
-                </div>
-
-                {/* Toggle Panel Button */}
-                <button
-                    onClick={() => setIsPanelOpen(!isPanelOpen)}
-                    className={`absolute right-4 top-1/2 -translate-y-1/2 w-10 h-24 bg-white border border-gray-100 rounded-2xl shadow-xl flex items-center justify-center transition-all z-20 hover:bg-gray-50 ${isPanelOpen ? 'translate-x-[calc(-96*0.25rem)] mr-96' : ''
-                        }`}
-                >
-                    <div className="flex flex-col space-y-1 items-center">
-                        <div className="w-1 h-1 bg-gray-400 rounded-full" />
-                        <div className="w-1 h-3 bg-gray-300 rounded-full" />
-                        <div className="w-1 h-1 bg-gray-400 rounded-full" />
+                    <div className="p-8 pt-32 h-full overflow-y-auto">
+                        <div className="flex justify-between items-end mb-10 pb-6 border-b border-gray-100">
+                            <div>
+                                <h2 className="text-4xl font-serif text-gray-900 tracking-tight">Wardrobe</h2>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mt-2">Personal Collection</p>
+                            </div>
+                            <span className="text-4xl font-serif text-gray-200">01</span>
+                        </div>
+                        <WardrobeMiniPanel />
                     </div>
-                </button>
+                </div>
             </div>
         </div>
     );

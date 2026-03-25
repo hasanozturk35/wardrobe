@@ -17,6 +17,8 @@ import { CalendarModule } from './calendar/calendar.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { DirectoryModule } from './directory/directory.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { AvatarModule } from './avatar/avatar.module';
+import { ShopModule } from './shop/shop.module';
 
 @Module({
   imports: [
@@ -27,6 +29,11 @@ import { PrismaModule } from './prisma/prisma.module';
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/static',
+      serveStaticOptions: {
+        setHeaders: (res) => {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+        }
+      }
     }),
     ThrottlerModule.forRoot([{
       ttl: 60000,
@@ -42,7 +49,9 @@ import { PrismaModule } from './prisma/prisma.module';
     CalendarModule,
     AnalyticsModule,
     DirectoryModule,
-    PrismaModule
+    PrismaModule,
+    AvatarModule,
+    ShopModule
   ],
   controllers: [AppController],
   providers: [

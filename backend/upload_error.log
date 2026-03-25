@@ -1,0 +1,14 @@
+PrismaClientKnownRequestError: 
+Invalid `this.prisma.garmentItem.create()` invocation in
+C:\Users\LENOVO\son bitirme\backend\src\wardrobe\wardrobe.service.ts:36:40
+
+  33 
+  34 const createPhotos = data.photoUrls?.map((url, index) => ({ url, isCover: index === 0 })) || [];
+  35 
+→ 36 return this.prisma.garmentItem.create(
+The column `GarmentItem.meshUrl` does not exist in the current database.
+    at ei.handleRequestError (C:\Users\LENOVO\son bitirme\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (C:\Users\LENOVO\son bitirme\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at ei.request (C:\Users\LENOVO\son bitirme\backend\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at async a (C:\Users\LENOVO\son bitirme\backend\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:833:24)
+    at async WardrobeController.addItem (C:\Users\LENOVO\son bitirme\backend\src\wardrobe\wardrobe.controller.ts:83:29)

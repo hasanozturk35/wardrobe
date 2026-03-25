@@ -5,8 +5,12 @@ import { Shirt, Search, CheckCircle2 } from 'lucide-react';
 import { getImageUrl } from '../../config';
 
 const WardrobeMiniPanel: React.FC = () => {
-    const { items, isLoading } = useWardrobeStore();
+    const { items, isLoading, fetchItems } = useWardrobeStore();
     const { wearItem, wornItems } = useStudioStore();
+
+    React.useEffect(() => {
+        fetchItems();
+    }, [fetchItems]);
 
     const isWorn = (itemId: string) => {
         return Object.values(wornItems).some(wornItem => wornItem?.id === itemId);
