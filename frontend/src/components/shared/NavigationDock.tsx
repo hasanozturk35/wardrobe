@@ -1,12 +1,13 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Shirt, Compass, Users, Calendar, Sparkles } from 'lucide-react';
+import { Shirt, Compass, Users, Calendar, Sparkles, BarChart3 } from 'lucide-react';
 
 const navItems = [
     { icon: Shirt, label: 'Wardrobe', path: '/wardrobe' },
     { icon: Compass, label: 'Discover', path: '/discover' },
     { icon: Users, label: 'Feed', path: '/feed' },
     { icon: Calendar, label: 'Calendar', path: '/calendar' },
+    { icon: BarChart3, label: 'Insights', path: '/analytics' },
     { icon: Sparkles, label: 'Studio', path: '/studio' },
 ];
 

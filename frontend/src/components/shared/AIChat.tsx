@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, User, Bot, Loader2, ChevronDown } from 'lucide-react';
-
+import { Sparkles, Send, Loader2, ChevronDown, MessageSquare, ShoppingBag } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useWardrobeStore } from '../../store/wardrobeStore';
 import { useStudioStore } from '../../store/studioStore';
+import { API_URL } from '../../config';
 
 interface Message {
     id: string;
@@ -10,6 +11,10 @@ interface Message {
     sender: 'user' | 'bot';
     timestamp: Date;
     suggestedOutfitIds?: string[];
+    shoppingSuggestion?: {
+        item: string;
+        price: string;
+    };
 }
 
 const QUICK_PROMPTS = [
@@ -24,7 +29,7 @@ export const AIChat: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([
         {
             id: '1',
-            text: 'Merhaba! Ben senin kişisel stil danışmanınım. Bugün nasıl görünmek istersin?',
+            text: 'Good afternoon. I am your personal style concierge. How may I assist your aesthetic journey today?',
             sender: 'bot',
             timestamp: new Date()
         }
@@ -57,7 +62,7 @@ export const AIChat: React.FC = () => {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:3000/ai/chat', {
+            const response = await fetch(`${API_URL}/ai/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -70,8 +75,8 @@ export const AIChat: React.FC = () => {
                 const data = await response.json();
                 const botMsg: Message = {
                     id: (Date.now() + 1).toString(),
-                    text: data.message || (data.response ? data.response.message : data.response) || 'Yanıt alınamadı.',
-                    suggestedOutfitIds: data.suggestedOutfitIds || (data.response ? data.response.suggestedOutfitIds : []) || [],
+                    text: data.message || 'Yanıt alınamadı.',
+                    suggestedOutfitIds: data.suggestedOutfitIds || [],
                     sender: 'bot',
                     timestamp: new Date()
                 };
@@ -79,140 +84,149 @@ export const AIChat: React.FC = () => {
             }
         } catch (error) {
             console.error('AI Chat Error:', error);
-            const errorMsg: Message = {
-                id: 'error',
-                text: 'Üzgünüm, şu an bağlantı kuramıyorum. Lütfen sonra tekrar dene.',
-                sender: 'bot',
-                timestamp: new Date()
-            };
-            setMessages(prev => [...prev, errorMsg]);
         } finally {
             setIsTyping(false);
         }
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-            {/* Chat Window */}
-            {isOpen && (
-                <div className="mb-4 w-[380px] h-[550px] bg-white/80 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/20 flex flex-col overflow-hidden animate-fadeIn origin-bottom-right">
-                    {/* Header */}
-                    <div className="p-6 bg-black text-white flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-tr from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                                <Sparkles size={20} className="text-white" />
+        <div className="fixed bottom-32 right-8 z-50 flex flex-col items-end">
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20, scale: 0.95, filter: 'blur(10px)' }}
+                        animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, y: 20, scale: 0.95, filter: 'blur(10px)' }}
+                        className="mb-6 w-[400px] h-[600px] bg-white/40 backdrop-blur-3xl rounded-[3rem] shadow-[0_40px_100px_rgba(0,0,0,0.15)] border border-white/40 flex flex-col overflow-hidden"
+                    >
+                        {/* Header */}
+                        <div className="p-8 border-b border-black/5 flex items-center justify-between bg-white/20">
+                            <div className="flex items-center space-x-4">
+                                <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center shadow-lg">
+                                    <Sparkles size={20} className="text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="font-serif text-2xl text-gray-900 tracking-tight">Concierge</h3>
+                                    <p className="text-[9px] text-gray-400 uppercase tracking-[0.2em] font-bold">Personal Stylist</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="font-bold text-sm">AI Stilist</h3>
-                                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Çevrimiçi</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => setIsOpen(false)}
-                            className="p-2 hover:bg-white/10 rounded-full transition-colors"
-                        >
-                            <ChevronDown size={20} />
-                        </button>
-                    </div>
-
-                    {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
-                        {messages.map((msg) => (
-                            <div
-                                key={msg.id}
-                                className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="w-10 h-10 hover:bg-black/5 rounded-full flex items-center justify-center transition-colors"
                             >
-                                <div className={`flex max-w-[80%] ${msg.sender === 'user' ? 'flex-row-reverse space-x-reverse' : 'flex-row'} space-x-2`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.sender === 'user' ? 'bg-black text-white' : 'bg-gray-100 text-gray-600'
+                                <ChevronDown size={24} className="text-gray-400" />
+                            </button>
+                        </div>
+
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
+                            {messages.map((msg) => (
+                                <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`flex flex-col max-w-[85%] ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                                        <div className={`p-5 rounded-[2rem] text-sm leading-relaxed shadow-sm ${
+                                            msg.sender === 'user' 
+                                            ? 'bg-black text-white rounded-tr-none' 
+                                            : 'bg-white/60 backdrop-blur-md text-gray-800 rounded-tl-none border border-white/60'
                                         }`}>
-                                        {msg.sender === 'user' ? <User size={14} /> : <Bot size={14} />}
-                                    </div>
-                                    <div className={`p-4 rounded-2xl text-sm leading-relaxed ${msg.sender === 'user'
-                                        ? 'bg-black text-white rounded-tr-none shadow-lg'
-                                        : 'bg-white border border-gray-100 text-gray-800 rounded-tl-none shadow-sm'
-                                        }`}>
-                                        {msg.text}
-                                        {msg.suggestedOutfitIds && msg.suggestedOutfitIds.length > 0 && (
-                                            <div className="mt-3 pt-3 border-t border-gray-100">
+                                            {msg.text}
+                                            
+                                            {msg.suggestedOutfitIds && msg.suggestedOutfitIds.length > 0 && (
                                                 <button
                                                     onClick={() => {
                                                         const wardrobeItems = useWardrobeStore.getState().items;
                                                         const { wearItem } = useStudioStore.getState();
-                                                        let foundAny = false;
                                                         msg.suggestedOutfitIds!.forEach(id => {
                                                             const item = wardrobeItems.find(w => w.id === id);
-                                                            if (item) {
-                                                                wearItem(item);
-                                                                foundAny = true;
-                                                            }
+                                                            if (item) wearItem(item);
                                                         });
-                                                        if (!foundAny) {
-                                                            alert("Önerilen kıyafetler henüz verileriniz arasında yüklenmemiş. Lütfen gardırop sekmesinde eşitleme yapın.");
-                                                        }
                                                     }}
-                                                    className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:opacity-90 active:scale-95 transition-all text-center flex justify-center items-center space-x-2"
+                                                    className="mt-4 w-full py-4 bg-white/20 hover:bg-white/40 border border-white/40 backdrop-blur-xl rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 group"
                                                 >
-                                                    <Sparkles size={14} className="text-white" />
-                                                    <span>Kombini Hemen Dene</span>
+                                                    <Sparkles size={14} className="group-hover:scale-110 transition-transform" />
+                                                    Dress Avatar
                                                 </button>
-                                            </div>
-                                        )}
+                                            )}
+
+                                            {msg.shoppingSuggestion && (
+                                                <div className="mt-4 p-5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl text-white shadow-lg overflow-hidden relative group cursor-pointer hover:scale-[1.02] transition-transform">
+                                                    <div className="absolute top-0 right-0 p-4 opacity-20">
+                                                        <ShoppingBag size={40} />
+                                                    </div>
+                                                    <p className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-80 mb-1">Personal Shopper Pick</p>
+                                                    <p className="text-lg font-serif mb-3">{msg.shoppingSuggestion.item}</p>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xl font-bold">{msg.shoppingSuggestion.price}</span>
+                                                        <button className="bg-white text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-50 transition-colors">
+                                                            View in Boutique
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="text-[8px] text-gray-400 uppercase tracking-widest mt-2 px-2">
+                                            {msg.sender === 'user' ? 'You' : 'Concierge'} • {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                        {isTyping && (
-                            <div className="flex justify-start items-center space-x-2 text-gray-400">
-                                <Loader2 size={14} className="animate-spin" />
-                                <span className="text-xs font-medium">Stilist düşünüyor...</span>
-                            </div>
-                        )}
-                        <div ref={messagesEndRef} />
-                    </div>
+                            ))}
+                            {isTyping && (
+                                <div className="flex items-center space-x-3 text-gray-400 p-4 bg-white/30 backdrop-blur-md rounded-2xl w-fit animate-pulse">
+                                    <Loader2 size={16} className="animate-spin" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest">Styling...</span>
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
 
-                    {/* Footer / Quick Prompts */}
-                    <div className="p-6 bg-gray-50/50 border-t border-gray-100">
+                        {/* Quick Prompts */}
                         {messages.length < 3 && (
-                            <div className="flex flex-wrap gap-2 mb-4">
+                            <div className="px-8 pb-4 flex flex-wrap gap-2">
                                 {QUICK_PROMPTS.map(p => (
                                     <button
                                         key={p}
                                         onClick={() => handleSend(p)}
-                                        className="text-[10px] font-bold bg-white px-3 py-2 rounded-lg border border-gray-100 hover:border-black transition-colors"
+                                        className="text-[9px] font-bold bg-white/40 hover:bg-white/80 backdrop-blur-md border border-white/60 px-4 py-2 rounded-full transition-all"
                                     >
                                         {p}
                                     </button>
                                 ))}
                             </div>
                         )}
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={inputValue}
-                                onChange={(e) => setInputValue(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSend(inputValue)}
-                                placeholder="Mesajını yaz..."
-                                className="w-full pl-4 pr-12 py-3 bg-white border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-black outline-none transition-all shadow-sm"
-                            />
-                            <button
-                                onClick={() => handleSend(inputValue)}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-                            >
-                                <Send size={16} />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Floating Bubble Button */}
-            <button
+                        {/* Input Area */}
+                        <div className="p-8 bg-white/20 border-t border-black/5">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSend(inputValue)}
+                                    placeholder="Speak with your stylist..."
+                                    className="w-full bg-white/40 border border-white/60 backdrop-blur-md rounded-2xl pl-6 pr-14 py-5 text-sm font-serif italic focus:ring-2 focus:ring-black/5 outline-none transition-all"
+                                />
+                                <button
+                                    onClick={() => handleSend(inputValue)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-black text-white rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg"
+                                >
+                                    <Send size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Toggle Button */}
+            <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500 hover:scale-110 active:scale-95 ${isOpen ? 'bg-white text-black rotate-90 scale-0 opacity-0' : 'bg-black text-white scale-100 opacity-100'
-                    }`}
+                className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl backdrop-blur-3xl border border-white/40 transition-all duration-700 ${
+                    isOpen ? 'bg-white text-black' : 'bg-black text-white'
+                }`}
             >
-                <Sparkles size={24} className="animate-pulse" />
-            </button>
+                {isOpen ? <MessageSquare size={24} /> : <Sparkles size={24} className="animate-pulse" />}
+            </motion.button>
         </div>
     );
 };

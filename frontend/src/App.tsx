@@ -7,6 +7,7 @@ import LookbookPage from './pages/LookbookPage';
 import DiscoverPage from './pages/DiscoverPage';
 import SocialFeedPage from './pages/SocialFeedPage';
 import CalendarPage from './pages/CalendarPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
                 <Route path="/discover" element={<DiscoverPage />} />
                 <Route path="/feed" element={<SocialFeedPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
               </Routes>
             </MainLayout>
           } />

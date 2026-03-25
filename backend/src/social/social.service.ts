@@ -14,6 +14,9 @@ export class SocialService {
                 },
                 items: {
                     include: { garmentItem: true }
+                },
+                _count: {
+                    select: { likes: true, comments: true }
                 }
             },
             orderBy: { createdAt: 'desc' },
@@ -33,6 +36,47 @@ export class SocialService {
         return this.prisma.outfit.update({
             where: { id: outfitId },
             data: { isPublic: !outfit.isPublic }
+        });
+    }
+
+    async toggleLike(userId: string, outfitId: string) {
+        const existingLike = await this.prisma.like.findUnique({
+            where: {
+                outfitId_userId: { outfitId, userId }
+            }
+        });
+
+        if (existingLike) {
+            return this.prisma.like.delete({
+                where: { id: existingLike.id }
+            });
+        }
+
+        return this.prisma.like.create({
+            data: { outfitId, userId }
+        });
+    }
+
+    async addComment(userId: string, outfitId: string, content: string) {
+        return this.prisma.comment.create({
+            data: { userId, outfitId, content },
+            include: {
+                user: {
+                    select: { id: true, name: true, avatarUrl: true }
+                }
+            }
+        });
+    }
+
+    async getComments(outfitId: string) {
+        return this.prisma.comment.findMany({
+            where: { outfitId },
+            include: {
+                user: {
+                    select: { id: true, name: true, avatarUrl: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
         });
     }
 }

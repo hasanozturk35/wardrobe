@@ -20,6 +20,8 @@ model User {
   outfits       Outfit[]
   avatar        Avatar?
   calendarEvents CalendarEvent[]
+  comments       Comment[]
+  likes          Like[]
 }
 
 model Avatar {
@@ -102,6 +104,32 @@ model Outfit {
 
   items          OutfitItem[]
   calendarEvents CalendarEvent[]
+  comments       Comment[]
+  likes          Like[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  outfitId  String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  outfit Outfit @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  outfitId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  outfit Outfit @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([outfitId, userId])
 }
 
 model OutfitItem {

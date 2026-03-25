@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Stage, useGLTF, Html } from '@react-three/drei';
-import React, { useRef, useState, useEffect, Suspense, useImperativeHandle, forwardRef } from 'react';
+import { OrbitControls, Stage, useGLTF, Html, Environment, ContactShadows } from '@react-three/drei';
+import { useRef, useState, useEffect, Suspense, useImperativeHandle, forwardRef } from 'react';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { RotateCcw, User, Eye, ArrowRight, ArrowLeft } from 'lucide-react';
 import { getImageUrl } from '../../config';
@@ -126,52 +126,107 @@ const AvatarViewer = forwardRef<AvatarViewerRef>((_, ref) => {
     };
 
     return (
-        <div className="w-full h-full relative bg-gradient-to-br from-gray-50 to-gray-200">
-            {/* Absolute positioned UI for Camera Presets */}
-            <div className="absolute right-6 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-3">
-                <div className="bg-white/80 backdrop-blur-xl p-2 rounded-2xl shadow-xl border border-white flex flex-col gap-2">
-                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest text-center my-1">KAMERA</p>
+        <div className="w-full h-full relative bg-[#F9F8F6]">
+            {/* Absolute positioned UI for Camera Presets - Boutique Style */}
+            <div className="absolute left-8 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-4">
+                <div className="bg-white/40 backdrop-blur-2xl p-4 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-white/60 flex flex-col gap-3">
+                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-[0.3em] text-center mb-2 opacity-60">Perspective</p>
 
-                    <button onClick={handleCameraFront} className="p-3 bg-gray-50 hover:bg-black hover:text-white rounded-xl text-gray-700 transition-all flex flex-col items-center justify-center gap-1 group">
-                        <User size={16} className="group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] font-bold">Ön</span>
+                    <button 
+                        onClick={handleCameraFront} 
+                        className="w-12 h-12 bg-white/80 hover:bg-black hover:text-white rounded-2xl text-gray-800 transition-all duration-500 flex items-center justify-center shadow-sm group active:scale-90"
+                    >
+                        <User size={18} className="group-hover:scale-110 transition-transform" strokeWidth={1.5} />
                     </button>
 
-                    <div className="flex gap-2">
-                        <button onClick={handleCameraLeft} className="p-2 flex-1 bg-gray-50 hover:bg-black hover:text-white rounded-xl text-gray-700 transition-all flex items-center justify-center group">
-                            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                    <div className="flex flex-col gap-3">
+                        <button 
+                            onClick={handleCameraLeft} 
+                            className="w-12 h-12 bg-white/80 hover:bg-black hover:text-white rounded-2xl text-gray-800 transition-all duration-500 flex items-center justify-center shadow-sm group active:scale-90"
+                        >
+                            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" strokeWidth={1.5} />
                         </button>
-                        <button onClick={handleCameraRight} className="p-2 flex-1 bg-gray-50 hover:bg-black hover:text-white rounded-xl text-gray-700 transition-all flex items-center justify-center group">
-                            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                        <button 
+                            onClick={handleCameraRight} 
+                            className="w-12 h-12 bg-white/80 hover:bg-black hover:text-white rounded-2xl text-gray-800 transition-all duration-500 flex items-center justify-center shadow-sm group active:scale-90"
+                        >
+                            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" strokeWidth={1.5} />
                         </button>
                     </div>
 
-                    <button onClick={handleCameraBack} className="p-3 bg-gray-50 hover:bg-black hover:text-white rounded-xl text-gray-700 transition-all flex flex-col items-center justify-center gap-1 group">
-                        <Eye size={16} className="group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] font-bold">Arka</span>
+                    <button 
+                        onClick={handleCameraBack} 
+                        className="w-12 h-12 bg-white/80 hover:bg-black hover:text-white rounded-2xl text-gray-800 transition-all duration-500 flex items-center justify-center shadow-sm group active:scale-90"
+                    >
+                        <Eye size={18} className="group-hover:scale-110 transition-transform" strokeWidth={1.5} />
                     </button>
 
-                    <div className="h-px bg-gray-200 w-full my-1"></div>
+                    <div className="h-px bg-black/5 w-8 mx-auto my-1"></div>
 
-                    <button onClick={handleResetCamera} className="p-3 bg-red-50 hover:bg-red-500 hover:text-white rounded-xl text-red-500 transition-all flex flex-col items-center justify-center gap-1 group">
-                        <RotateCcw size={16} className="group-hover:-rotate-45 transition-transform" />
-                        <span className="text-[10px] font-bold">Sıfırla</span>
+                    <button 
+                        onClick={handleResetCamera} 
+                        className="w-12 h-12 bg-rose-50/50 hover:bg-rose-500 hover:text-white rounded-2xl text-rose-500 transition-all duration-500 flex items-center justify-center shadow-sm group active:scale-90"
+                    >
+                        <RotateCcw size={18} className="group-hover:-rotate-45 transition-transform" strokeWidth={1.5} />
                     </button>
                 </div>
             </div>
 
             <Canvas 
                 shadows 
-                camera={{ position: [0, 1.2, 3], fov: 45 }}
-                gl={{ preserveDrawingBuffer: true }} // Important for toDataURL
+                dpr={[1, 2]}
+                camera={{ position: [0, 1.2, 3.5], fov: 40 }}
+                gl={{ 
+                    preserveDrawingBuffer: true,
+                    antialias: true,
+                    toneMapping: THREE.ACESFilmicToneMapping,
+                    toneMappingExposure: 1.2
+                }}
             >
-                <color attach="background" args={['#EDEEF0']} />
-
+                {/* Premium Boutique Background */}
+                <color attach="background" args={['#F9F8F6']} />
+                
                 <Suspense fallback={<Loader />}>
-                    <Stage shadows={"contact"} adjustCamera={false} intensity={0.8} environment="city" preset="rembrandt">
-                        {/* 1. Render a Floor/Grid instead of the Avatar (as requested to remove avatar) */}
-                        <gridHelper args={[10, 10, 0xcccccc, 0xeeeeee]} position={[0, -0.9, 0]} />
+                    {/* Cinematic Lighting & Environment */}
+                    <Environment preset="apartment" />
+                    <ambientLight intensity={0.4} />
+                    <spotLight 
+                        position={[5, 10, 5]} 
+                        angle={0.15} 
+                        penumbra={1} 
+                        intensity={2} 
+                        castShadow 
+                        shadow-mapSize={1024}
+                    />
+                    <pointLight position={[-5, 5, -5]} intensity={0.5} color="#F9F8F6" />
+                    
+                    <group position={[0, -0.9, 0]}>
+                        {/* Polished Ivory Floor */}
+                        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                            <planeGeometry args={[50, 50]} />
+                            <meshStandardMaterial 
+                                color="#FFFFFF" 
+                                roughness={0.05} 
+                                metalness={0.1}
+                                envMapIntensity={0.5}
+                            />
+                        </mesh>
                         
+                        {/* Subtle Reflection Catchment */}
+                        <ContactShadows 
+                            opacity={0.4} 
+                            scale={10} 
+                            blur={2.4} 
+                            far={0.8} 
+                        />
+                    </group>
+
+                    <Stage 
+                        shadows="contact" 
+                        adjustCamera={false} 
+                        intensity={0.5} 
+                        environment={null} // We use our own environment
+                    >
                         {/* Provide a dummy bounding box for garments to scale against (1.8m height) */}
                         {(() => {
                             if (!avatarBox) {
@@ -184,8 +239,7 @@ const AvatarViewer = forwardRef<AvatarViewerRef>((_, ref) => {
                             return null;
                         })()}
 
-                        {/* 2. Render Worn Items: Check for 3D Mesh first, Fallback to 2D Overlay */}
-
+                        {/* Worn Items Implementation */}
                         {/* BOTTOM */}
                         {wornItems.bottom && (
                             wornItems.bottom.meshUrl ? (
@@ -196,7 +250,16 @@ const AvatarViewer = forwardRef<AvatarViewerRef>((_, ref) => {
                                 />
                             ) : wornItems.bottom.photos?.[0]?.url && (
                                 <Html position={[0, -0.4, 0.05]} center transform sprite zIndexRange={[10, 0]}>
-                                    <img src={getImageUrl(wornItems.bottom.photos[0].url)} alt="Bottom" style={{ width: '180px', mixBlendMode: 'multiply', pointerEvents: 'none', opacity: 0.9 }} />
+                                    <img 
+                                        src={getImageUrl(wornItems.bottom.photos[0].url)} 
+                                        alt="Bottom" 
+                                        style={{ 
+                                            width: '180px', 
+                                            filter: 'drop-shadow(0 20px 30px rgba(0,0,0,0.1))',
+                                            pointerEvents: 'none', 
+                                            opacity: 0.95 
+                                        }} 
+                                    />
                                 </Html>
                             )
                         )}
@@ -211,7 +274,16 @@ const AvatarViewer = forwardRef<AvatarViewerRef>((_, ref) => {
                                 />
                             ) : wornItems.top.photos?.[0]?.url && (
                                 <Html position={[0, 0.25, 0.1]} center transform sprite zIndexRange={[10, 0]}>
-                                    <img src={getImageUrl(wornItems.top.photos[0].url)} alt="Top" style={{ width: '200px', mixBlendMode: 'multiply', pointerEvents: 'none', opacity: 0.9 }} />
+                                    <img 
+                                        src={getImageUrl(wornItems.top.photos[0].url)} 
+                                        alt="Top" 
+                                        style={{ 
+                                            width: '200px', 
+                                            filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.15))',
+                                            pointerEvents: 'none', 
+                                            opacity: 0.95 
+                                        }} 
+                                    />
                                 </Html>
                             )
                         )}
@@ -226,7 +298,16 @@ const AvatarViewer = forwardRef<AvatarViewerRef>((_, ref) => {
                                 />
                             ) : wornItems.shoes.photos?.[0]?.url && (
                                 <Html position={[0, -0.9, 0.05]} center transform sprite zIndexRange={[10, 0]}>
-                                    <img src={getImageUrl(wornItems.shoes.photos[0].url)} alt="Shoes" style={{ width: '140px', mixBlendMode: 'multiply', pointerEvents: 'none', opacity: 0.9 }} />
+                                    <img 
+                                        src={getImageUrl(wornItems.shoes.photos[0].url)} 
+                                        alt="Shoes" 
+                                        style={{ 
+                                            width: '140px', 
+                                            filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.1))',
+                                            pointerEvents: 'none', 
+                                            opacity: 0.95 
+                                        }} 
+                                    />
                                 </Html>
                             )
                         )}
@@ -236,12 +317,14 @@ const AvatarViewer = forwardRef<AvatarViewerRef>((_, ref) => {
                 <OrbitControls
                     ref={controlsRef}
                     makeDefault
-                    minDistance={1.5}
-                    maxDistance={8}
-                    minPolarAngle={0}
-                    maxPolarAngle={Math.PI}
-                    target={[0, 0.8, 0]}
+                    minDistance={1.8}
+                    maxDistance={6}
+                    minPolarAngle={Math.PI / 4}
+                    maxPolarAngle={Math.PI / 1.5}
+                    target={[0, 0.6, 0]}
                     enablePan={false}
+                    enableDamping={true}
+                    dampingFactor={0.05}
                 />
             </Canvas>
         </div>

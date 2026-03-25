@@ -17,4 +17,25 @@ export class SocialController {
     toggleShare(@Request() req: any, @Param('id') outfitId: string) {
         return this.socialService.togglePublicOutfit(req.user.userId, outfitId);
     }
+
+    @Post('like/:id')
+    @UseGuards(AuthGuard('jwt'))
+    toggleLike(@Request() req: any, @Param('id') outfitId: string) {
+        return this.socialService.toggleLike(req.user.userId, outfitId);
+    }
+
+    @Get('comments/:id')
+    @UseGuards(AuthGuard('jwt'))
+    getComments(@Param('id') outfitId: string) {
+        return this.socialService.getComments(outfitId);
+    }
+
+    @Post('comments/:id')
+    @UseGuards(AuthGuard('jwt'))
+    addComment(@Request() req: any, @Param('id') outfitId: string, @Request() body: any) {
+        // Note: In NestJS, @Request() req can be used to get body if not using @Body()
+        // But better to use @Body() if possible. I'll use req.body for simplicity here if body is passed as raw.
+        // Actually I'll use @Body() correctly if the imports allow it.
+        return this.socialService.addComment(req.user.userId, outfitId, req.body.content);
+    }
 }
