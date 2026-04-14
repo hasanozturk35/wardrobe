@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Calendar, Share2, Menu, Plus, Sparkles } from 'lucide-react';
+import { Trash2, Calendar, Share2, Menu, Plus, Sparkles, Layout } from 'lucide-react';
 import { API_URL, getImageUrl } from '../config';
+import { OutfitDesigner } from '../components/wardrobe/OutfitDesigner';
+import { useUIStore } from '../store/uiStore';
 
 interface OutfitItem {
     id: string;
@@ -25,8 +27,10 @@ interface Outfit {
 
 const LookbookPage: React.FC = () => {
     const navigate = useNavigate();
+    const { openMenu, showToast } = useUIStore();
     const [outfits, setOutfits] = useState<Outfit[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isDesignerOpen, setIsDesignerOpen] = useState(false);
 
     useEffect(() => {
         fetchOutfits();
@@ -62,6 +66,7 @@ const LookbookPage: React.FC = () => {
 
             if (res.ok) {
                 setOutfits(prev => prev.filter(o => o.id !== id));
+                showToast('Outfit deleted successfully');
             } else {
                 alert('Kombin silinirken bir hata oluştu.');
             }
@@ -81,6 +86,7 @@ const LookbookPage: React.FC = () => {
 
             if (res.ok) {
                 setOutfits(prev => prev.map(o => o.id === id ? { ...o, isPublic: !currentPublicStatus } : o));
+                showToast(currentPublicStatus ? 'Removed from community feed' : 'Published to community feed');
             } else {
                 alert('Paylaşım durumu değiştirilemedi.');
             }
@@ -94,19 +100,31 @@ const LookbookPage: React.FC = () => {
             <div className="max-w-[1200px] mx-auto">
                 {/* Boutique Header */}
                 <div className="flex justify-between items-center mb-16">
-                    <button className="w-12 h-12 bg-white/80 backdrop-blur-md border border-white/60 rounded-2xl flex items-center justify-center shadow-sm hover:scale-105 transition-all">
+                    <button 
+                        onClick={openMenu}
+                        className="w-12 h-12 bg-white/80 backdrop-blur-md border border-white/60 rounded-2xl flex items-center justify-center shadow-sm hover:scale-105 transition-all"
+                    >
                         <Menu size={20} className="text-gray-900" />
                     </button>
                     <div className="text-center">
                         <h1 className="text-6xl font-light font-serif text-gray-900 tracking-tighter mb-4">Lookbook</h1>
                         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-500 opacity-70">Your personal style gallery</p>
                     </div>
-                    <button 
-                        onClick={() => navigate('/studio')}
-                        className="w-12 h-12 bg-white/80 backdrop-blur-md border border-white/60 rounded-2xl flex items-center justify-center shadow-sm hover:scale-105 transition-all"
-                    >
-                        <Plus size={20} className="text-gray-900" />
-                    </button>
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => setIsDesignerOpen(true)}
+                            className="h-12 px-6 bg-black text-white rounded-2xl flex items-center gap-2 shadow-xl hover:scale-105 transition-all group"
+                        >
+                            <Sparkles size={18} className="group-hover:animate-pulse" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest leading-none">Design Look</span>
+                        </button>
+                        <button 
+                            onClick={() => navigate('/studio')}
+                            className="w-12 h-12 bg-white/80 backdrop-blur-md border border-white/60 rounded-2xl flex items-center justify-center shadow-sm hover:scale-105 transition-all"
+                        >
+                            <Layout size={20} className="text-gray-900" />
+                        </button>
+                    </div>
                 </div>
 
                 {loading ? (
@@ -124,9 +142,8 @@ const LookbookPage: React.FC = () => {
                         </p>
                         <button
                             onClick={() => navigate('/studio')}
-                            className="btn-glass bg-black text-white px-10 py-5 hover:scale-105"
+                            className="bg-black text-white px-10 py-5 rounded-2xl hover:scale-105 transition-all"
                         >
-                            <Sparkles size={20} />
                             Studio'ya Git
                         </button>
                     </div>
@@ -135,32 +152,32 @@ const LookbookPage: React.FC = () => {
                         {outfits.map(outfit => (
                             <div key={outfit.id} className="bg-white rounded-[2.5rem] p-4 shadow-sm hover:shadow-xl transition-all duration-300 group border border-gray-50">
                                 {/* Cover Image */}
-                                <div className="aspect-[3/4] rounded-[2.5rem] overflow-hidden bg-white shadow-[0_15px_45px_rgb(0,0,0,0.08)] group-hover:shadow-[0_20px_60px_rgb(0,0,0,0.15)] transition-all duration-500 relative cursor-pointer border border-white/60 p-3">
+                                <div className="aspect-[3/4] rounded-[2.5rem] overflow-hidden bg-white shadow-lg group-hover:shadow-2xl transition-all duration-500 relative cursor-pointer border border-white/60 p-3">
                                     <div className="w-full h-full rounded-[2rem] overflow-hidden relative bg-gray-50">
                                         {outfit.coverUrl ? (
                                             <img 
                                                 src={getImageUrl(outfit.coverUrl)} 
-                                                alt={outfit.name || 'Kombin'} 
+                                                alt={outfit.name || 'Outfit'} 
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                                                Görsel Yok
-                                            </div>
+                                            <div className="w-full h-full flex items-center justify-center bg-gray-100 uppercase tracking-widest text-gray-300 font-serif">Outfit</div>
                                         )}
                                         
-                                        {/* Actions Overlay */}
                                         <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button 
-                                                onClick={(e) => handleShare(outfit.id, outfit.isPublic || false, e)}
-                                                className={`p-3 backdrop-blur-md rounded-full transition-colors shadow-sm ${outfit.isPublic ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-white/90 text-gray-700 hover:bg-white'}`}
-                                                title={outfit.isPublic ? "Yayından Kaldır" : "Feed'de Paylaş"}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigator.clipboard.writeText(`${window.location.origin}/lookbook/${outfit.id}`);
+                                                    showToast('Link copied to clipboard');
+                                                }}
+                                                className="p-3 bg-white/90 backdrop-blur-md rounded-full transition-colors shadow-sm hover:bg-black hover:text-white"
                                             >
                                                 <Share2 size={18} />
                                             </button>
                                             <button 
                                                 onClick={(e) => handleDelete(outfit.id, e)}
-                                                className="p-3 bg-white/90 backdrop-blur-md rounded-full text-red-500 hover:bg-red-50 transition-colors shadow-sm"
+                                                className="p-3 bg-white/90 backdrop-blur-md rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-colors shadow-sm"
                                             >
                                                 <Trash2 size={18} />
                                             </button>
@@ -169,31 +186,10 @@ const LookbookPage: React.FC = () => {
                                 </div>
 
                                 {/* Info */}
-                                <div className="px-4 pb-2">
-                                    <h3 className="text-xl font-bold text-gray-900 mb-1">{outfit.name || 'İsimsiz Kombin'}</h3>
-                                    <div className="flex items-center text-gray-500 text-sm mb-4">
-                                        <Calendar size={14} className="mr-1" />
-                                        {new Date(outfit.createdAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                    </div>
-
-                                    {/* Composed Items Thumbnails */}
-                                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-50">
-                                        {outfit.items.slice(0, 4).map((item, idx) => (
-                                            <div key={idx} className="w-10 h-10 rounded-xl overflow-hidden bg-gray-100 border border-gray-200" title={`${item.garmentItem.category} - ${item.garmentItem.brand || 'Ürün'}`}>
-                                                {item.garmentItem.photos?.[0]?.url && (
-                                                    <img 
-                                                        src={getImageUrl(item.garmentItem.photos[0].url)} 
-                                                        alt={item.garmentItem.category}
-                                                        className="w-full h-full object-cover mix-blend-multiply"
-                                                    />
-                                                )}
-                                            </div>
-                                        ))}
-                                        {outfit.items.length > 4 && (
-                                            <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                                                +{outfit.items.length - 4}
-                                            </div>
-                                        )}
+                                <div className="px-4 py-6">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-1 font-serif tracking-tight">{outfit.name || 'Editorial Look'}</h3>
+                                    <div className="flex items-center text-gray-400 text-xs font-bold uppercase tracking-widest">
+                                        {new Date(outfit.createdAt).toLocaleDateString()}
                                     </div>
                                 </div>
                             </div>
@@ -201,6 +197,12 @@ const LookbookPage: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            <OutfitDesigner 
+                isOpen={isDesignerOpen} 
+                onClose={() => setIsDesignerOpen(false)} 
+                onSuccess={fetchOutfits} 
+            />
         </div>
     );
 };

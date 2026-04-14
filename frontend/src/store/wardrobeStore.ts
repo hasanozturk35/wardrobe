@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { API_URL } from '../config';
+import { api } from '../lib/api';
 
 export interface GarmentItem {
     id: string;
@@ -23,6 +23,7 @@ interface WardrobeState {
     setItems: (items: GarmentItem[]) => void;
     fetchItems: () => Promise<void>;
     deleteItem: (id: string) => Promise<void>;
+    updateItem: (id: string, data: Partial<GarmentItem>) => Promise<void>;
     setFilters: (filters: Partial<WardrobeState['filters']>) => void;
     clearFilters: () => void;
 }
@@ -38,17 +39,9 @@ export const useWardrobeStore = create<WardrobeState>((set) => ({
     fetchItems: async () => {
         set({ isLoading: true });
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/wardrobe/items`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                set({ items: data, isLoading: false });
-            } else if (res.status === 401) {
-                // Token expired silently, redirect to login
-                localStorage.removeItem('token');
-                window.location.href = '/login';
+            const res = await api.get(`/wardrobe/items`);
+            if (res.status === 200) {
+                set({ items: res.data, isLoading: false });
             } else {
                 set({ isLoading: false });
             }
@@ -59,16 +52,24 @@ export const useWardrobeStore = create<WardrobeState>((set) => ({
     },
     deleteItem: async (id) => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/wardrobe/items/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
+            const res = await api.delete(`/wardrobe/items/${id}`);
+            if (res.status === 200) {
                 set((state) => ({ items: state.items.filter(item => item.id !== id) }));
             }
         } catch (error) {
             console.error('Failed to delete item:', error);
+        }
+    },
+    updateItem: async (id, data) => {
+        try {
+            const res = await api.post(`/wardrobe/items/${id}`, data);
+            if (res.status === 201 || res.status === 200) {
+                set((state) => ({
+                    items: state.items.map(item => item.id === id ? { ...item, ...res.data } : item)
+                }));
+            }
+        } catch (error) {
+            console.error('Failed to update item:', error);
         }
     },
     setFilters: (filters) => set((state) => ({ filters: { ...state.filters, ...filters } })),

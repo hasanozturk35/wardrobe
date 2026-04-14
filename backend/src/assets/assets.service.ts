@@ -1,41 +1,57 @@
-import { Injectable } from '@nestjs/common';
-import * as path from 'path';
-import * as fs from 'fs';
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { StorageProvider } from '../infrastructure/storage/storage.provider';
+import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 const sharp = require('sharp');
 
 @Injectable()
 export class AssetsService {
-    private readonly uploadDir = path.join(process.cwd(), 'uploads');
+  private readonly baseUrl: string;
 
-    constructor() {
-        if (!fs.existsSync(this.uploadDir)) {
-            fs.mkdirSync(this.uploadDir, { recursive: true });
-        }
+  constructor(
+    private readonly storage: StorageProvider,
+    private readonly configService: ConfigService,
+  ) {
+    this.baseUrl = this.configService.get<string>('BASE_URL') || `http://localhost:${this.configService.get('PORT') || 3000}`;
+  }
+
+  async generatePresignedUrl(extension: string) {
+    const filename = `${uuidv4()}.${extension}`;
+    return {
+      uploadUrl: `${this.baseUrl}/assets/upload-direct/${filename}`,
+      fileKey: filename,
+    };
+  }
+
+  async processAndSaveImage(fileBuffer: Buffer, filename: string): Promise<string> {
+    // Resize to 3:4 aspect ratio (e.g. 600x800) to avoid cluttered looks.
+    const processedBuffer = await sharp(fileBuffer)
+      .resize(600, 800, {
+        fit: 'cover',
+        position: 'center'
+      })
+      .toBuffer();
+
+    const path = `thumb_${filename}`;
+    const uploadedPath = await this.storage.upload({
+      buffer: processedBuffer,
+      filename: path,
+      mimetype: 'image/jpeg',
+    }, path);
+
+    return `${this.baseUrl}${this.storage.getUrl(uploadedPath)}`;
+  }
+
+  validateFile(file: Express.Multer.File) {
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Only JPEG, PNG, and WebP are allowed.');
     }
 
-    // MVP: Handles local upload instead of real presigned S3 URLs to save time.
-    // In production, this would return a Cloudinary or S3 presigned URL.
-    async generatePresignedUrl(extension: string) {
-        const filename = `${uuidv4()}.${extension}`;
-        return {
-            uploadUrl: `http://localhost:${process.env.PORT || 3000}/assets/upload-direct/${filename}`,
-            fileKey: filename,
-        };
+    if (file.size > maxSizeBytes) {
+      throw new BadRequestException('File is too large. Max size is 5MB.');
     }
-
-    async processAndSaveImage(fileBuffer: Buffer, filename: string): Promise<string> {
-        const outputPath = path.join(this.uploadDir, `thumb_${filename}`);
-
-        // Resize to 3:4 aspect ratio (e.g. 600x800) to avoid cluttered looks.
-        await sharp(fileBuffer)
-            .resize(600, 800, {
-                fit: 'cover',
-                position: 'center'
-            })
-            .toFile(outputPath);
-
-        // Return the URL where the image is served statically
-        return `http://localhost:${process.env.PORT || 3000}/static/thumb_${filename}`;
-    }
+  }
 }

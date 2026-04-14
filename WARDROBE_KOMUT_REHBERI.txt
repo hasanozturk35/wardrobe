@@ -1,0 +1,53 @@
+=====================================================================
+            WARDROBE PROJESİ - KOMUT VE YÖNETİM REHBERİ
+=====================================================================
+
+Bu dosya, projenizi çalıştırmak ve yönetmek için ihtiyacınız olan 
+temel komutları içerir.
+
+---------------------------------------------------------------------
+1. PROJEYİ ÇALIŞTIRMA (DEVELOPMENT MODE)
+---------------------------------------------------------------------
+
+* Backend'i Başlat (Terminal 1):
+  cd backend
+  npm run start:dev
+
+* Frontend'i Başlat (Terminal 2):
+  cd frontend
+  npm run dev
+
+---------------------------------------------------------------------
+2. VERİTABANI YÖNETİMİ (PRISMA)
+---------------------------------------------------------------------
+NOT: Bu komutlar her zaman 'backend' klasörü içinde çalıştırılmalıdır.
+
+* Görsel Veri Paneli (Tarayıcıda açılır):
+  npx prisma studio
+
+* Veritabanı Yapısını Güncelleme (schema.prisma'yı değiştirdiğinizde):
+  npx prisma migrate dev --name [degisiklik_adi]
+
+* Prisma Kodlarını Yenileme:
+  npx prisma generate
+
+* Veritabanını Tamamen Sıfırlama (DİKKAT: Tüm veriler silinir!):
+  npx prisma migrate reset
+
+---------------------------------------------------------------------
+3. VERİTABANINA YENİ ALAN EKLEME AKIŞI
+---------------------------------------------------------------------
+Eğer veritabanına yeni bir özellik eklemek isterseniz şu sırayı izleyin:
+
+1. 'backend/prisma/schema.prisma' dosyasını düzenleyin.
+2. Terminalde (backend klasöründe) şunu çalıştırın:
+   npx prisma migrate dev --name alan_eklendi
+3. 'npx prisma generate' komutunu çalıştırın.
+4. Backend'i ve gerekirse Frontend'i yeniden başlatın.
+
+---------------------------------------------------------------------
+ÖNEMLİ LİNKLER:
+- API Adresi: http://localhost:3000
+- Frontend Adresi: http://localhost:5174 (Vite portu çakışmaya göre değişebilir)
+- Prisma Studio: http://localhost:5555
+---------------------------------------------------------------------

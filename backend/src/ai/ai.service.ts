@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../infrastructure/prisma/prisma.service';
 import OpenAI from 'openai';
 
 @Injectable()
@@ -207,24 +207,65 @@ JSON formatı şu şekilde olmalıdır:
             }
 
             if (glbUrl) {
-                this.logger.log(`3D Model Generated: ${glbUrl}`);
                 await this.prisma.garmentItem.update({
                     where: { id: garmentId },
                     data: { meshUrl: glbUrl }
                 });
+                this.logger.log(`3D Generation Success for ${garmentId}: ${glbUrl}`);
             } else {
-                // Final fallback
-                await this.prisma.garmentItem.update({
-                    where: { id: garmentId },
-                    data: { meshUrl: '/static/meshes/default_jacket.glb' }
-                });
+                this.logger.warn(`3D Generation Timed out for ${garmentId}`);
             }
+
         } catch (error) {
-            this.logger.error('Tripo AI Error, using Mock:', error);
-            await this.prisma.garmentItem.update({
-                where: { id: garmentId },
-                data: { meshUrl: '/static/meshes/default_jacket.glb' }
-            });
+            this.logger.error(`3D Generation Service Error for ${garmentId}`, error);
         }
+    }
+
+    async getEditorialResponse(userId: string) {
+        const weather = this.getMockWeather();
+        const wardrobe = await this.prisma.wardrobe.findUnique({
+            where: { userId },
+            include: { items: true }
+        });
+
+        const wardrobeSummary = wardrobe?.items.map(i => `${i.category} (${i.brand})`).join(', ') || 'boş';
+        
+        const systemPrompt = `
+            Sen elit bir moda editörüsün. Kullanıcının gardırobuna ve şu anki moda başkentlerindeki hava durumuna göre 
+            günlük bir "Style Briefing" (Stil Özeti) hazırla. 
+            Moda başkenti: ${weather.city}, Hava: ${weather.condition}, Sıcaklık: ${weather.temp}°C.
+            Gardırop Özeti: ${wardrobeSummary}
+            Ses tonu: İlham verici, sofistike, elit.
+            JSON formatında dön: {"headline": "...", "article": "...", "suggestedCategory": "..."}
+        `;
+
+        if (this.openai) {
+            try {
+                const completion = await this.openai.chat.completions.create({
+                    model: "gpt-3.5-turbo",
+                    response_format: { type: "json_object" },
+                    messages: [{ role: "system", content: systemPrompt }],
+                });
+                return JSON.parse(completion.choices[0].message.content || '{}');
+            } catch (e) {
+                this.logger.error('Editorial AI Error', e);
+            }
+        }
+
+        return {
+            headline: `${weather.city} Esintisi: ${weather.condition} Şıklığı`,
+            article: `Bugün ${weather.city} sokaklarında ${weather.temp} derece bir hava var. Gardırobundaki parçalarla bu atmosfere eşlik etmen için harika bir gün.`,
+            suggestedCategory: 'Dış Giyim'
+        };
+    }
+
+    private getMockWeather() {
+        const cities = [
+            { city: 'Milano', temp: 18, condition: 'Parçalı Bulutlu' },
+            { city: 'Paris', temp: 14, condition: 'Hafif Yağmurlu' },
+            { city: 'Londra', temp: 11, condition: 'Sisli' },
+            { city: 'New York', temp: 22, condition: 'Güneşli' }
+        ];
+        return cities[Math.floor(Math.random() * cities.length)];
     }
 }

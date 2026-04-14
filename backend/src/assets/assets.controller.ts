@@ -1,34 +1,37 @@
-import { Controller, Post, UseInterceptors, UploadedFile, Param, Get, Res } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFile, Param, Get, BadRequestException, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AssetsService } from './assets.service';
-import { Response } from 'express';
-import * as path from 'path';
-import * as fs from 'fs';
 
 @Controller('assets')
 export class AssetsController {
-    constructor(private readonly assetsService: AssetsService) { }
+  constructor(private readonly assetsService: AssetsService) { }
 
-    @Get('presigned-url')
-    async getPresignedUrl() {
-        // In MVP, we mock the S3 presigned URL mechanism.
-        return this.assetsService.generatePresignedUrl('jpg');
+  @Get('presigned-url')
+  async getPresignedUrl() {
+    return this.assetsService.generatePresignedUrl('jpg');
+  }
+
+  @Post('upload-direct/:filename')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDirect(
+    @Param('filename') filename: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('File not provided');
+
+    // Security: Validate the filename to prevent path traversal
+    // In a real production-grade app, we'd ignore the client-provided filename 
+    // or validate it against a strictly defined pattern (e.g. UUID).
+    if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+        throw new BadRequestException('Invalid filename pattern');
     }
 
-    @Post('upload-direct/:filename')
-    @UseInterceptors(FileInterceptor('file'))
-    async uploadDirect(
-        @Param('filename') filename: string,
-        @UploadedFile() file: Express.Multer.File,
-    ) {
-        if (!file) throw new Error('File not provided');
+    // Enterprise-grade validation inside the service
+    this.assetsService.validateFile(file);
 
-        // Save locally to mimic successful upload
-        const uploadPath = path.join(process.cwd(), 'uploads', filename);
-        fs.writeFileSync(uploadPath, file.buffer);
-
-        // Process and generate thumbnail
-        const thumbUrl = await this.assetsService.processAndSaveImage(file.buffer, filename);
-        return { success: true, url: thumbUrl };
-    }
+    // Process and save using abstract storage (non-blocking)
+    const thumbUrl = await this.assetsService.processAndSaveImage(file.buffer, filename);
+    
+    return { success: true, url: thumbUrl };
+  }
 }

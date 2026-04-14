@@ -1,24 +1,30 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Shirt, Compass, Users, Calendar, Sparkles, BarChart3 } from 'lucide-react';
+import { Shirt, Compass, Users, Calendar, Sparkles, BarChart3, UserCircle, Layout, ShieldCheck } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 const navItems = [
     { icon: Shirt, label: 'Wardrobe', path: '/wardrobe' },
+    { icon: Layout, label: 'Lookbook', path: '/lookbook' },
+    { icon: Sparkles, label: 'Studio', path: '/studio' },
     { icon: Compass, label: 'Discover', path: '/discover' },
     { icon: Users, label: 'Feed', path: '/feed' },
-    { icon: Calendar, label: 'Calendar', path: '/calendar' },
     { icon: BarChart3, label: 'Insights', path: '/analytics' },
-    { icon: Sparkles, label: 'Studio', path: '/studio' },
+    { icon: UserCircle, label: 'Avatar', path: '/avatar/profile' },
+    { icon: ShieldCheck, label: 'Admin', path: '/admin', adminOnly: true },
 ];
 
 export const NavigationDock: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const { user } = useAuthStore();
+
     return (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
             <div className="bg-white/40 backdrop-blur-2xl border border-white/40 rounded-[2.5rem] px-4 py-3 shadow-[0_20px_50px_rgba(0,0,0,0.1)] flex items-center gap-2">
                 {navItems.map((item) => {
+                    if (item.adminOnly && user?.role !== 'ADMIN') return null;
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
                     return (

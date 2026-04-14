@@ -2,10 +2,10 @@ import React, { useState, useRef } from 'react';
 import AvatarViewer from '../components/studio/AvatarViewer';
 import type { AvatarViewerRef } from '../components/studio/AvatarViewer';
 import WardrobeMiniPanel from '../components/studio/WardrobeMiniPanel';
-import { Share2, Save, Sparkles, UploadCloud, Menu, Plus } from 'lucide-react';
+import { Save, Sparkles, UploadCloud, Menu, Plus } from 'lucide-react';
 import { useStudioStore } from '../store/studioStore';
 import { AIChat } from '../components/shared/AIChat';
-import { API_URL } from '../config';
+import { api } from '../lib/api';
 
 const StudioPage: React.FC = () => {
     const [isPanelOpen, setIsPanelOpen] = useState(true);
@@ -27,23 +27,19 @@ const StudioPage: React.FC = () => {
         formData.append('glb', file);
 
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/avatar/upload`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData
+            const res = await api.post('/avatar/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            if (res.ok) {
+            if (res.status === 200 || res.status === 201) {
                 alert('Avatar başarıyla yüklendi!');
                 window.location.reload();
             } else {
-                const errorData = await res.json();
-                alert(`Yükleme hatası: ${errorData.message || 'Bilinmeyen hata'}`);
+                alert(`Yükleme hatası: Bilinmeyen hata`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Upload error:', error);
-            alert('Avatar yüklenirken bir hata oluştu.');
+            alert(`Avatar yüklenirken bir hata oluştu: ${error.response?.data?.message || error.message}`);
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';

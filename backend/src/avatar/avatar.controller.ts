@@ -1,18 +1,28 @@
-import { Controller, Post, Get, Request, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import {
+    Controller,
+    Post,
+    Get,
+    Request,
+    UseGuards,
+    UseInterceptors,
+    UploadedFile,
+    BadRequestException,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { AvatarService } from './avatar.service';
+import { JwtAuthGuard } from '../modules/auth/jwt-auth.guard';
 
 @Controller('avatar')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(JwtAuthGuard)
 export class AvatarController {
     constructor(private readonly avatarService: AvatarService) { }
 
-    @Get()
+    @Get('status')
     async getMyAvatar(@Request() req: any) {
-        return this.avatarService.getAvatar(req.user.userId);
+        const userId = req.user.userId || req.user.sub || req.user.id;
+        return this.avatarService.getAvatar(userId);
     }
 
     @Post('upload')
@@ -36,8 +46,50 @@ export class AvatarController {
     }))
     async uploadAvatar(@Request() req: any, @UploadedFile() file: Express.Multer.File) {
         if (!file) throw new BadRequestException('File is missing or invalid');
-
+        const userId = req.user.userId || req.user.sub || req.user.id;
         const fileUrl = `/static/avatars/${file.filename}`;
-        return this.avatarService.uploadAvatar(req.user.userId, fileUrl, file.originalname);
+        return this.avatarService.uploadAvatar(userId, fileUrl, file.originalname);
+    }
+
+    @Post('upload-selfie')
+    @UseInterceptors(
+        FileInterceptor('file', {
+            storage: diskStorage({
+                destination: './uploads/avatars',
+                filename: (req, file, cb) => {
+                    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+                    cb(null, `selfie-${uniqueSuffix}${extname(file.originalname)}`);
+                },
+            }),
+        }),
+    )
+    async uploadSelfie(@Request() req: any, @UploadedFile() file: Express.Multer.File) {
+        const url = `/static/avatars/${file.filename}`;
+        const userId = req.user.userId || req.user.sub || req.user.id;
+        return this.avatarService.updateSelfie(userId, url);
+    }
+
+    @Post('upload-body')
+    @UseInterceptors(
+        FileInterceptor('file', {
+            storage: diskStorage({
+                destination: './uploads/avatars',
+                filename: (req, file, cb) => {
+                    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+                    cb(null, `body-${uniqueSuffix}${extname(file.originalname)}`);
+                },
+            }),
+        }),
+    )
+    async uploadBody(@Request() req: any, @UploadedFile() file: Express.Multer.File) {
+        const url = `/static/avatars/${file.filename}`;
+        const userId = req.user.userId || req.user.sub || req.user.id;
+        return this.avatarService.updateBodyPhoto(userId, url);
+    }
+
+    @Post('trigger-synthesis')
+    async triggerSynthesis(@Request() req: any) {
+        const userId = req.user.userId || req.user.sub || req.user.id;
+        return this.avatarService.triggerSynthesisPlaceholder(userId);
     }
 }

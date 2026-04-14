@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -7,6 +7,11 @@ import { FileInterceptor } from '@nestjs/platform-express';
 @UseGuards(AuthGuard('jwt'))
 export class AiController {
     constructor(private readonly aiService: AiService) { }
+
+    @Get('editorial')
+    async getEditorial(@Request() req: any) {
+        return this.aiService.getEditorialResponse(req.user.userId);
+    }
 
     @Post('chat')
     async chat(@Request() req: any, @Body() body: { message: string }) {

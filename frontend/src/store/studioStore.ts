@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { GarmentItem } from './wardrobeStore';
+import { api } from '../lib/api';
 
 interface StudioState {
     wornItems: {
@@ -71,17 +72,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
             if (items.length === 0) return false;
 
-            const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:3000/outfits`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ name, description, items, coverImage })
-            });
+            const res = await api.post(`/outfits`, { name, description, items, coverImage });
 
-            if (res.ok) {
+            if (res.status === 200 || res.status === 201) {
                 // Clear all worn items after saving
                 set({ wornItems: { top: null, bottom: null, shoes: null } });
                 return true;

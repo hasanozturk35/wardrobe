@@ -6,13 +6,14 @@ interface AddItemModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    editItem?: any;
 }
 
 const CATEGORIES = ['Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'];
 const COLORS = ['Siyah', 'Beyaz', 'Lacivert', 'Gri', 'Bej', 'Kırmızı', 'Mavi', 'Yeşil'];
 const SEASONS = ['İlkbahar', 'Yaz', 'Sonbahar', 'Kış'];
 
-export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSuccess, editItem }) => {
     const [formData, setFormData] = useState({
         category: 'Üst Giyim',
         brand: '',
@@ -24,6 +25,27 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
     const [loading, setLoading] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    React.useEffect(() => {
+        if (editItem && isOpen) {
+            setFormData({
+                category: editItem.category || 'Üst Giyim',
+                brand: editItem.brand || '',
+                colors: editItem.colors || [],
+                seasons: editItem.seasons || []
+            });
+            // Photos stay as images array for potential new uploads
+        } else if (!editItem && isOpen) {
+            setFormData({
+                category: 'Üst Giyim',
+                brand: '',
+                colors: [],
+                seasons: []
+            });
+            setImages([]);
+            setPreviews([]);
+        }
+    }, [editItem, isOpen]);
 
     if (!isOpen) return null;
 
@@ -108,7 +130,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
             formData.seasons.forEach(s => data.append('seasons', s));
             images.forEach(img => data.append('photos', img));
 
-            const response = await fetch(`${API_URL}/wardrobe/items`, {
+            const url = editItem 
+                ? `${API_URL}/wardrobe/items/${editItem.id}` 
+                : `${API_URL}/wardrobe/items`;
+
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -120,10 +146,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
                 onSuccess();
                 onClose();
             } else {
-                alert('Ekleme sırasında bir hata oluştu.');
+                alert('İşlem sırasında bir hata oluştu.');
             }
         } catch (error) {
-            console.error('Error adding item:', error);
+            console.error('Operation failed:', error);
             alert('Sunucuya bağlanılamadı.');
         } finally {
             setLoading(false);
@@ -133,11 +159,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
             <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
-                {/* Image Preview Area */}
                 <div className="w-full md:w-1/2 bg-gray-50 flex flex-col p-8 border-b md:border-b-0 md:border-r border-gray-100 relative max-h-[50vh] md:max-h-none overflow-y-auto">
                     <div className="grid grid-cols-2 gap-4 mb-4">
                         {previews.map((previewUrl, idx) => (
-                            <div key={idx} className="relative aspect-[3/4] rounded-2xl overflow-hidden group">
+                            <div key={idx} className="relative aspect-[3/4] rounded-2xl overflow-hidden group border border-white/40 shadow-sm">
                                 <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                                 <button
                                     type="button"
@@ -149,6 +174,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
                                 {idx === 0 && (
                                     <div className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-md">
                                         Kapak
+                                    </div>
+                                )}
+                                {idx === 0 && isAnalyzing && (
+                                    <div className="absolute inset-0 z-10 pointer-events-none">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.8)] animate-scan shadow-indigo-400" />
+                                        <div className="absolute inset-0 bg-indigo-500/10 animate-pulse" />
                                     </div>
                                 )}
                             </div>
@@ -181,9 +212,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
                         <div className="flex items-center gap-3">
                             <h2 className="text-2xl font-bold font-serif">Kıyafet Ekle</h2>
                             {isAnalyzing && (
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-bold animate-pulse border border-purple-100 shadow-sm">
-                                    <Sparkles size={12} className="animate-spin-slow" />
-                                    <span>AI Seçiyor...</span>
+                                <div className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full text-[10px] font-bold animate-pulse shadow-lg shadow-indigo-200">
+                                    <Sparkles size={12} className="animate-spin" />
+                                    <span className="tracking-widest uppercase">AI Concierge Analysing...</span>
                                 </div>
                             )}
                         </div>
@@ -286,3 +317,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
         </div>
     );
 };
+
+// CSS for animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes scan {
+        0% { top: 0; opacity: 1; }
+        50% { opacity: 0.8; }
+        100% { top: 100%; opacity: 0.2; }
+    }
+    .animate-scan {
+        position: absolute;
+        width: 100%;
+        animation: scan 2s linear infinite;
+    }
+`;
+document.head.appendChild(style);

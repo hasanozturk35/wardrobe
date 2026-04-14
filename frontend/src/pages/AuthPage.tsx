@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Lock, Mail, User, ArrowRight, Loader2, Instagram, Chrome } from 'lucide-react';
 
 const BG_IMAGE = '/src/assets/quiet_luxury_wardrobe_bg_1772833697604.png';
@@ -9,8 +9,10 @@ const AVATAR_IMAGE = '/src/assets/pinterest_fashion_couple_editorial_17728338543
 
 const AuthPage: React.FC = () => {
     const [isLogin, setIsLogin] = useState(true);
+    const [isForgotMode, setIsForgotMode] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -24,16 +26,35 @@ const AuthPage: React.FC = () => {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
+        setSuccessMessage(null);
 
         try {
-            const endpoint = isLogin ? '/auth/login' : '/auth/register';
-            const response = await axios.post(`http://localhost:3000${endpoint}`, formData);
+            if (isForgotMode) {
+                const response = await api.post('/auth/forgot-password', { email: formData.email });
+                setSuccessMessage(response.data.message);
+            } else {
+                const endpoint = isLogin ? '/auth/login' : '/auth/register';
+                const response = await api.post(endpoint, formData);
 
-            const { accessToken, user } = response.data;
-            setAuth(accessToken, user);
-            navigate('/wardrobe');
+                const { accessToken, user } = response.data;
+                setAuth(accessToken, user);
+                navigate('/wardrobe');
+            }
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Bir hata oluştu. Lütfen tekrar deneyin.');
+            console.error('[Auth Error Full Object]', err);
+            let msg = 'Bir hata oluştu. Lütfen tekrar deneyin.';
+            
+            if (err.response) {
+                // Sunucudan hata yanıtı geldi (400, 401, 500 vb.)
+                msg = err.response.data?.message || msg;
+            } else if (err.request) {
+                // İstek yapıldı ama yanıt gelmedi (Network Error, CORS, Sunucu kapalı)
+                msg = 'Bağlantı Hatası: Sunucuya ulaşılamıyor. Lütfen backend (port 3000) çalışıyor mu kontrol edin.';
+            } else {
+                msg = err.message || msg;
+            }
+
+            setError(Array.isArray(msg) ? msg.join(', ') : msg);
         } finally {
             setIsLoading(false);
         }
@@ -92,28 +113,32 @@ const AuthPage: React.FC = () => {
 
                     <div className="mb-10">
                         <h1 className="text-4xl font-serif font-bold text-gray-900 mb-2">
-                            {isLogin ? 'Tekrar Hoş Geldin' : 'Aramıza Katıl'}
+                            {isForgotMode ? 'Şifremi Unuttum' : (isLogin ? 'Tekrar Hoş Geldin' : 'Aramıza Katıl')}
                         </h1>
                         <p className="text-gray-500 font-sans tracking-wide">
-                            {isLogin ? 'Moda yolculuğuna kaldığın yerden devam et.' : 'Dijital gardırobunu oluşturmaya bugün başla.'}
+                            {isForgotMode 
+                                ? 'E-posta adresinizi girin, sıfırlama linki gönderelim.' 
+                                : (isLogin ? 'Moda yolculuğuna kaldığın yerden devam et.' : 'Dijital gardırobunu oluşturmaya bugün başla.')}
                         </p>
                     </div>
 
-                    {/* Login/Register Toggle Panel */}
-                    <div className="bg-gray-200/50 p-1 rounded-xl mb-10 flex border border-gray-200">
-                        <button
-                            onClick={() => setIsLogin(true)}
-                            className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all duration-300 ${isLogin ? 'bg-white text-black shadow-lg scale-[1.02]' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            Giriş Yap
-                        </button>
-                        <button
-                            onClick={() => setIsLogin(false)}
-                            className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all duration-300 ${!isLogin ? 'bg-white text-black shadow-lg scale-[1.02]' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            Kayıt Ol
-                        </button>
-                    </div>
+                    {!isForgotMode && (
+                        /* Login/Register Toggle Panel */
+                        <div className="bg-gray-200/50 p-1 rounded-xl mb-10 flex border border-gray-200">
+                            <button
+                                onClick={() => setIsLogin(true)}
+                                className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all duration-300 ${isLogin ? 'bg-white text-black shadow-lg scale-[1.02]' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                Giriş Yap
+                            </button>
+                            <button
+                                onClick={() => setIsLogin(false)}
+                                className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all duration-300 ${!isLogin ? 'bg-white text-black shadow-lg scale-[1.02]' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                Kayıt Ol
+                            </button>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl mb-8 border border-red-100 flex items-center space-x-2 animate-shake">
@@ -122,10 +147,17 @@ const AuthPage: React.FC = () => {
                         </div>
                     )}
 
+                    {successMessage && (
+                        <div className="bg-green-50 text-green-600 text-sm p-4 rounded-xl mb-8 border border-green-100 flex items-center space-x-2">
+                            <div className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                            <span>{successMessage}</span>
+                        </div>
+                    )}
+
                     {/* Glassmorphism Form Container */}
                     <div className="bg-white/40 backdrop-blur-xl border border-white/60 p-8 rounded-[32px] shadow-2xl shadow-gray-200/50">
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            {!isLogin && (
+                            {!isLogin && !isForgotMode && (
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] ml-2">TAM İSİM</label>
                                     <div className="relative group">
@@ -157,20 +189,33 @@ const AuthPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] ml-2">ŞİFRE</label>
-                                <div className="relative group">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-black transition-colors" />
-                                    <input
-                                        type="password"
-                                        name="password"
-                                        required
-                                        placeholder="••••••••"
-                                        onChange={handleChange}
-                                        className="w-full pl-12 pr-4 py-4 bg-white/50 border border-gray-100 rounded-[12px] focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all shadow-sm"
-                                    />
+                            {!isForgotMode && (
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center ml-2">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">ŞİFRE</label>
+                                        {isLogin && (
+                                            <button 
+                                                type="button"
+                                                onClick={() => setIsForgotMode(true)}
+                                                className="text-[10px] font-bold text-black border-b border-black/20 hover:border-black transition-all"
+                                            >
+                                                ŞİFREMİ UNUTTUM?
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="relative group">
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-black transition-colors" />
+                                        <input
+                                            type="password"
+                                            name="password"
+                                            required
+                                            placeholder="••••••••"
+                                            onChange={handleChange}
+                                            className="w-full pl-12 pr-4 py-4 bg-white/50 border border-gray-100 rounded-[12px] focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all shadow-sm"
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             <button
                                 type="submit"
@@ -181,11 +226,23 @@ const AuthPage: React.FC = () => {
                                     <Loader2 className="w-5 h-5 animate-spin" />
                                 ) : (
                                     <>
-                                        <span className="tracking-wide">{isLogin ? 'GİRİŞ YAP' : 'HESAP OLUŞTUR'}</span>
+                                        <span className="tracking-wide">
+                                            {isForgotMode ? 'LINK GÖNDER' : (isLogin ? 'GİRİŞ YAP' : 'HESAP OLUŞTUR')}
+                                        </span>
                                         <ArrowRight className="w-5 h-5" />
                                     </>
                                 )}
                             </button>
+
+                            {isForgotMode && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsForgotMode(false)}
+                                    className="w-full text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-black transition-colors"
+                                >
+                                    Geri Dön
+                                </button>
+                            )}
                         </form>
 
                         {/* Social Buttons */}

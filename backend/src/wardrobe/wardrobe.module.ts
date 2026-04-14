@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { WardrobeController } from './wardrobe.controller';
 import { WardrobeService } from './wardrobe.service';
-import { AuthModule } from '../auth/auth.module';
+import { AuthModule } from '../modules/auth/auth.module';
 import { AiModule } from '../ai/ai.module';
 
 @Module({

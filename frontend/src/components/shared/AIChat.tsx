@@ -3,7 +3,7 @@ import { Sparkles, Send, Loader2, ChevronDown, MessageSquare, ShoppingBag } from
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWardrobeStore } from '../../store/wardrobeStore';
 import { useStudioStore } from '../../store/studioStore';
-import { API_URL } from '../../config';
+import { api } from '../../lib/api';
 
 interface Message {
     id: string;
@@ -61,18 +61,10 @@ export const AIChat: React.FC = () => {
         setIsTyping(true);
 
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_URL}/ai/chat`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ message: text })
-            });
+            const response = await api.post('/ai/chat', { message: text });
 
-            if (response.ok) {
-                const data = await response.json();
+            if (response.status === 200 || response.status === 201) {
+                const data = response.data;
                 const botMsg: Message = {
                     id: (Date.now() + 1).toString(),
                     text: data.message || 'Yanıt alınamadı.',

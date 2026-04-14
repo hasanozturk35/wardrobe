@@ -1,0 +1,115 @@
+================================================================================
+PREMIUM DIGITAL WARDROBE & 3D TRY-ON PLATFORM - PROJE DÖKÜMANTASYONU
+================================================================================
+
+1. PROJE AMACI VE VİZYONU
+-------------------------
+Bu proje, kullanıcıların fiziksel gardıroplarını dijital ortama taşıyan, yapay zeka 
+destekli stil danışmanlığı sunan ve 3D sanal deneme (virtual try-on) imkanı sağlayan 
+üst segment (premium) bir moda platformudur.
+
+Ana Hedefler:
+- Dağınıklıktan uzak, lüks butik estetiğine sahip bir dijital gardırop deneyimi.
+- Yapay zeka ile otomatik kıyafet analizi ve kişiye özel kombin önerileri.
+- 3D avatar üzerinde kıyafetlerin nasıl duracağını simüle eden "Studio" deneyimi.
+- Veriye dayalı moda analizleri (Style Analytics).
+
+2. TEKNOLOJİ YIĞINI (TECH STACK)
+--------------------------------
+FRONTEND:
+- React 19 + Vite (Hızlı ve modern SPA yapısı)
+- Tailwind CSS (Premium, esnek tasarım)
+- Zustand (Hafif ve etkili state yönetimi)
+- Three.js / React Three Fiber (3D Görüntüleme motoru)
+- Framer Motion (Akıcı mikro-animasyonlar)
+- Lucide React (Minimalist ikon kütüphanesi)
+
+BACKEND:
+- NestJS (Modüler, ölçeklenebilir Node.js framework)
+- Prisma ORM (Tip güvenli veritabanı erişimi)
+- PostgreSQL (İlişkisel veritabanı)
+- Passport / JWT (Güvenlik ve kimlik doğrulama)
+
+AI ENTEGRASYONLARI:
+- OpenAI GPT-4o Vision (Resimden kategori ve renk çıkarma)
+- OpenAI GPT-3.5 (Stil danışmanlığı ve editöryal içerik üretimi)
+- Tripo AI (2.5D görsellerden 3D model üretme - Deneysel)
+
+3. SİSTEM MİMARİSİ VE DOSYA YAPISI
+----------------------------------
+PROJE KÖK DİZİNİ:
+├── backend/            # NestJS API
+├── frontend/           # React App
+├── docs/               # Tasarım ve kapsam dökümanları
+└── uploads/            # Fiziksel medya dosyaları (statik servis edilir)
+
+BACKEND MODÜLER YAPI (src/):
+- auth/: Kayıt, giriş, JWT yönetimi ve Guard'lar.
+- users/: Kullanıcı profili işlemleri ve yetkilendirme.
+- admin/: Yönetici paneli, istatistik ve log yönetimi.
+- wardrobe/: Kıyafet ekleme, listeleme ve kategori yönetimi.
+- outfits/: Kombin oluşturma ve kaydetme.
+- ai/: Yapay zeka servisleri (OpenAI & Tripo entegrasyonu).
+- avatar/: 3D avatar yönetimi ve yükleme işlemleri.
+- common/: Global logger, exception filter ve guardlar.
+- prisma/: Veritabanı bağlantı servisi.
+
+FRONTEND YAPI (src/):
+- components/:
+    - shared/: Layout, Navigasyon, Korunan Rotalar.
+    - wardrobe/: Kıyafet kartları, ekleme modalı.
+    - studio/: 3D Avatar Viewer ve Garment Mesh kontrolü.
+- pages/: Wardrobe, Lookbook, Studio, Discover, Admin, Feed.
+- store/: Zustand store'ları (auth, wardrobe, ui, studio).
+- lib/: API (Axios) yapılandırması.
+
+4. GÜVENLİK VE YETKİLENDİRME
+----------------------------
+- JWT (JSON Web Token): Sistem "Stateless" bir yapıda çalışır. Login sonrası
+  AccessToken (15dk) ve RefreshToken (7gün) üretilir.
+- Role-Based Access Control (RBAC):
+    - USER: Kendi gardırobunu ve kombinlerini yönetir.
+    - ADMIN: Tüm sistemi izler, kullanıcıları yönetir ve logları görür.
+- Guards (Korumalar):
+    - JwtAuthGuard: Giriş yapmayan kullanıcıların veriye erişimini engeller.
+    - AdminGuard: Belirli kritik endpoint'lere (istatistik, loglama vb.) sadece 
+      adminlerin girmesini sağlar.
+
+5. SİSTEM LOGLAMA (LOG RECORDS)
+-------------------------------
+Platformda yüksek izlenebilirlik için "DbLoggerService" geliştirilmiştir:
+- Persistent Logging: Sadece console.log ile kalmaz, tüm sistem olaylarını 
+  (Hatalar, uyarılar, kritik bilgi mesajları) veritabanındaki "system_logs" 
+  tablosuna kaydeder.
+- Context-Aware: Loglar hangi modülden (Auth, AI, Wardrobe vb.) geldiğini belirtir.
+- Admin Viewing: Yönetici panelindeki "System Logs" sekmesinden tüm geçmiş
+  tarih sırasına göre izlenebilir.
+
+6. ADMİN YÖNETİCİLİĞİ
+---------------------
+Yöneticiler için özelleştirilmiş "/admin" panelinin özellikleri:
+- Overview: Toplam kullanıcı, toplam parça sayısı ve günlük büyüme grafikleri.
+- Members: Tüm kullanıcı listesi, kullanıcı silme ve yetki değiştirme (ADMIN/USER).
+- System Health: Veritabanına kaydedilen logların canlı takibi.
+
+7. VERİTABANI ŞEMASI (PRISMA MODELS)
+------------------------------------
+- User: E-posta, şifre, isim ve rol bilgisi.
+- Wardrobe & GarmentItem: Gardırop parçaları, markalar ve meta veriler.
+- ItemPhoto: Kıyafetlerin görsel URL'leri.
+- Outfit: Seçilen parçaların bir araya getirildiği kombinler.
+- SystemLog: Sistem olayları ve hata kayıtları.
+- Avatar: Kullanıcının 3D model bilgileri.
+
+8. WORKFLOW (KULLANICI AKIŞI)
+-----------------------------
+1. Kullanıcı kaydolur ve giriş yapar.
+2. Fotoğraf çekerek veya yükleyerek gardırop oluşturur (AI otomatik analiz eder).
+3. 3D Studio'ya girerek kendi avatarı üzerinde bu parçaları dener.
+4. Beğendiği görünümü snapshot alarak kombin (Lookbook) olarak kaydeder.
+5. AI stilistinden bu kombin için stil puanı ve öneri alır.
+6. Takvimine bu kombini hangi gün giyeceğini ekler.
+
+================================================================================
+Döküman Sonu - 2026
+================================================================================

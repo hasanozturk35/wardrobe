@@ -12,16 +12,21 @@ model User {
   email        String   @unique
   passwordHash String
   name         String?
+  role         UserRole @default(USER)
   avatarUrl    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  wardrobe      Wardrobe?
-  outfits       Outfit[]
-  avatar        Avatar?
+  resetToken        String?
+  resetTokenExpires DateTime?
+
+  wardrobe       Wardrobe?
+  outfits        Outfit[]
+  avatar         Avatar?
   calendarEvents CalendarEvent[]
   comments       Comment[]
   likes          Like[]
+  sessions       RefreshSession[]
 }
 
 model Avatar {
@@ -154,4 +159,35 @@ model CalendarEvent {
   date      DateTime // Represents the day (YYYY-MM-DD T00:00:00.000Z)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model SystemLog {
+  id        String   @id @default(uuid())
+  level     String   @default("info") // info, warn, error
+  message   String
+  context   String?
+  userId    String?
+  timestamp DateTime @default(now())
+
+  @@map("system_logs")
+}
+
+model RefreshSession {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String   @unique
+  deviceInfo   String?
+  ipAddress    String?
+  isRevoked    Boolean  @default(false)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("refresh_sessions")
 }
