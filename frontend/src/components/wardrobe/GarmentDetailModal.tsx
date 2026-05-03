@@ -12,7 +12,7 @@ const GarmentDetailModal: React.FC<GarmentDetailModalProps> = ({ item, onClose, 
     const imageUrl = getImageUrl(item.photos?.[0]?.url);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white rounded-3xl overflow-hidden w-full max-w-4xl shadow-2xl flex flex-col md:flex-row relative max-h-[90vh]">
                 {/* Close Button */}
                 <button

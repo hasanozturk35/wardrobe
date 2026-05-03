@@ -22,6 +22,9 @@ import { ShopModule } from './shop/shop.module';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { QueueModule } from './infrastructure/queue/queue.module';
+import { MailModule } from './mail/mail.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 import { AuditInterceptor } from './observability/audit/audit.interceptor';
 
 @Module({
@@ -55,10 +58,13 @@ import { AuditInterceptor } from './observability/audit/audit.interceptor';
     DirectoryModule,
     PrismaModule,
     StorageModule,
+    QueueModule,
+    JobsModule,
     ObservabilityModule,
     AvatarModule,
     ShopModule,
     AdminModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [

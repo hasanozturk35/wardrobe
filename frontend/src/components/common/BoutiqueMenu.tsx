@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { X, Shirt, Layout, Sparkles, Compass, Users, Calendar, BarChart3, UserCircle, LogOut } from 'lucide-react';
+import { X, Shirt, Layout, Sparkles, Compass, Users, Calendar, BarChart3, UserCircle, LogOut, KeyRound } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 export const BoutiqueMenu: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { isMenuOpen, closeMenu } = useUIStore();
+    const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
     const menuItems = [
         { icon: Shirt, label: 'Wardrobe', path: '/wardrobe', desc: 'Your fashion collection' },
@@ -32,6 +34,7 @@ export const BoutiqueMenu: React.FC = () => {
     };
 
     return (
+        <>
         <AnimatePresence>
             {isMenuOpen && (
                 <motion.div
@@ -93,13 +96,29 @@ export const BoutiqueMenu: React.FC = () => {
                                     );
                                 })}
 
+                                {/* Change Password Button */}
+                                <motion.button
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: menuItems.length * 0.05 }}
+                                    onClick={() => setIsChangePasswordOpen(true)}
+                                    className="group flex items-start gap-8 text-left hover:translate-x-4 transition-transform duration-500 mt-8"
+                                >
+                                    <div className="w-16 h-16 rounded-[1.5rem] bg-gray-50 text-gray-400 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all duration-500">
+                                        <KeyRound size={24} strokeWidth={1} />
+                                    </div>
+                                    <div className="py-2">
+                                        <h3 className="text-2xl font-serif text-gray-400 group-hover:text-black transition-colors">Şifre Değiştir</h3>
+                                    </div>
+                                </motion.button>
+
                                 {/* Logout Special Button */}
                                 <motion.button
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: (menuItems.length) * 0.05 }}
+                                    transition={{ delay: (menuItems.length + 1) * 0.05 }}
                                     onClick={handleLogout}
-                                    className="group flex items-start gap-8 text-left hover:translate-x-4 transition-transform duration-500 mt-8"
+                                    className="group flex items-start gap-8 text-left hover:translate-x-4 transition-transform duration-500"
                                 >
                                     <div className="w-16 h-16 rounded-[1.5rem] bg-rose-50 text-rose-500 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-all duration-500">
                                         <LogOut size={24} strokeWidth={1} />
@@ -119,5 +138,11 @@ export const BoutiqueMenu: React.FC = () => {
                 </motion.div>
             )}
         </AnimatePresence>
+
+        <ChangePasswordModal
+            isOpen={isChangePasswordOpen}
+            onClose={() => setIsChangePasswordOpen(false)}
+        />
+        </>
     );
 };

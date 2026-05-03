@@ -1,13 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../infrastructure/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { GarmentItem } from '@prisma/client';
+import { AiService } from '../ai/ai.service';
+import { CreateItemDto, UpdateItemDto } from './dto/wardrobe.dto';
 
 @Injectable()
 export class WardrobeService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly aiService: AiService
+    ) { }
 
     // 1. Get User's Wardrobe Items
-    async getItems(userId: string) {
+    async getItems(userId: string): Promise<GarmentItem[]> {
         const wardrobe = await this.prisma.wardrobe.findUnique({
             where: { userId },
         });
@@ -25,7 +30,7 @@ export class WardrobeService {
     }
 
     // 2. Add an Item
-    async addItem(userId: string, data: { category: string, brand?: string, colors: string[], seasons: string[], photoUrls?: string[] }) {
+    async addItem(userId: string, data: CreateItemDto & { photoUrls?: string[] }) {
         let wardrobe = await this.prisma.wardrobe.findUnique({ where: { userId } });
         if (!wardrobe) {
             wardrobe = await this.prisma.wardrobe.create({ data: { userId } });
@@ -33,19 +38,31 @@ export class WardrobeService {
 
         const createPhotos = data.photoUrls?.map((url, index) => ({ url, isCover: index === 0 })) || [];
 
-        return this.prisma.garmentItem.create({
+        const item = await this.prisma.garmentItem.create({
             data: {
                 wardrobeId: wardrobe.id,
                 category: data.category,
                 brand: data.brand,
-                colors: data.colors,
-                seasons: data.seasons,
+                colors: data.colors || [],
+                seasons: data.seasons || [],
                 photos: createPhotos.length > 0 ? {
                     create: createPhotos
                 } : undefined
             },
             include: { photos: true }
         });
+
+        // 🔥 Trigger 3D/AI Processing in background
+        let jobId: string | undefined;
+        if (data.photoUrls && data.photoUrls.length > 0) {
+            const aiJob = await this.aiService.generate3DModel(item.id, data.photoUrls[0]).catch(err => {
+                console.error('Failed to trigger background 3D generation:', err);
+                return null;
+            });
+            jobId = aiJob?.jobId;
+        }
+
+        return { ...item, jobId };
     }
 
     // 2.5 Add a Discovered Item (already has URL)
@@ -71,7 +88,7 @@ export class WardrobeService {
     }
 
     // 3. Update an Item
-    async updateItem(userId: string, id: string, data: { category?: string, brand?: string, colors?: string[], seasons?: string[], meshUrl?: string }) {
+    async updateItem(userId: string, id: string, data: UpdateItemDto) {
         const item = await this.prisma.garmentItem.findFirst({
             where: { id, wardrobe: { userId } }
         });

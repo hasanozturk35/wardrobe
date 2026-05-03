@@ -5,8 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
-import { RegisterDto, LoginDto, ResetPasswordDto } from './auth.dto';
+import { RegisterDto, LoginDto, ResetPasswordDto, ChangePasswordDto } from './auth.dto';
 import { DbLoggerService } from '../../observability/logger/db-logger.service';
+import { MailService } from '../../mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly dbLogger: DbLoggerService,
+    private readonly mailService: MailService,
   ) {}
 
   async register(registerDto: RegisterDto, ip?: string, ua?: string) {
@@ -41,7 +43,7 @@ export class AuthService {
         user: { id: user.id, email: user.email, name: user.name, role: user.role },
         ...tokens
       };
-    } catch (error) {
+    } catch (error: any) {
       this.dbLogger.error(`Registration failed: ${error.message}`, error.stack, 'Auth');
       throw error;
     }
@@ -56,15 +58,41 @@ export class AuthService {
 
       const tokens = await this.issueNewSession(user.id, user.email, user.role, ip, ua);
       this.dbLogger.log(`Login successful: ${loginDto.email}`, 'Auth');
-      
+
       return {
         user: { id: user.id, email: user.email, name: user.name, role: user.role },
         ...tokens
       };
-    } catch (error) {
+    } catch (error: any) {
       this.dbLogger.error(`Login error: ${error.message}`, error.stack, 'Auth');
       throw error;
     }
+  }
+
+  async loginOAuth(googleUser: any, ip: string, userAgent: string) {
+    let user = await this.prisma.user.findFirst({
+      where: { email: googleUser.email },
+    });
+
+    if (!user) {
+      // Create user if not exists (Social Auto-Registration)
+      user = await this.prisma.user.create({
+        data: {
+          email: googleUser.email,
+          name: `${googleUser.firstName} ${googleUser.lastName}`,
+          passwordHash: '', 
+          role: 'USER',
+        },
+      });
+    }
+
+    const tokens = await this.issueNewSession(user.id, user.email, user.role, ip, userAgent);
+    this.dbLogger.log(`Social Login successful: ${user.email}`, 'Auth');
+    
+    return {
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      ...tokens
+    };
   }
 
   async refreshTokens(refreshToken: string, ip?: string, ua?: string) {
@@ -150,13 +178,21 @@ export class AuthService {
   // ... (forgotPassword and resetPassword remain similar, just ensuring they use dbLogger)
   async forgotPassword(email: string) {
     const user = await this.usersService.findByEmail(email);
-    if (!user) return { message: 'If account exists, link sent.' };
-    const token = Math.random().toString(36).substring(2, 15);
+    if (!user) return { message: 'Eğer bu e-posta kayıtlıysa sıfırlama linki gönderildi.' };
+
+    const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date();
     expires.setHours(expires.getHours() + 1);
     await this.usersService.updateResetToken(user.id, token, expires);
-    this.dbLogger.log(`Password reset requested for ${email}`, 'Auth');
-    return { message: 'Reset link generated.' };
+
+    try {
+      await this.mailService.sendPasswordReset(email, token);
+      this.dbLogger.log(`Password reset email sent to ${email}`, 'Auth');
+    } catch (mailError) {
+      this.logger.error('Mail gönderilemedi:', mailError);
+    }
+
+    return { message: 'Eğer bu e-posta kayıtlıysa sıfırlama linki gönderildi.' };
   }
 
   async resetPassword(resetDto: ResetPasswordDto) {
@@ -168,5 +204,20 @@ export class AuthService {
     await this.usersService.updatePassword(user.id, hashedPassword);
     this.dbLogger.log(`Password reset success: ${user.id}`, 'Auth');
     return { message: 'Password reset successful.' };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const passwordMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!passwordMatch) throw new UnauthorizedException('Mevcut şifre hatalı');
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+    await this.usersService.updatePassword(userId, hashedPassword);
+    await this.revokeAllUserSessions(userId);
+
+    this.dbLogger.log(`Password changed for user ${userId}`, 'Auth');
+    return { message: 'Şifre başarıyla değiştirildi.' };
   }
 }

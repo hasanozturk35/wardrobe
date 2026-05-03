@@ -1,6 +1,7 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { MainLayout } from './components/shared/MainLayout';
 import { ProtectedRoute } from './components/shared/ProtectedRoute';
+import LandingPage from './pages/LandingPage';
 import WardrobePage from './pages/WardrobePage';
 import AuthPage from './pages/AuthPage';
 import StudioPage from './pages/StudioPage';
@@ -13,13 +14,37 @@ import AvatarOnboarding from './avatar/pages/AvatarOnboarding';
 import AvatarProfilePage from './avatar/pages/AvatarProfilePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminDashboard from './pages/AdminDashboard';
+import React from 'react';
+
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div style={{padding: '40px', color: 'red', fontFamily: 'monospace'}}>
+        <h1>Something went wrong.</h1>
+        <pre>{String(this.state.error?.stack || this.state.error)}</pre>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
 
 function App() {
   return (
-    <Router>
+    <ErrorBoundary>
+      <Router>
       <div className="w-full min-h-screen">
         <Routes>
-          <Route path="/" element={<Navigate to="/auth" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/*" element={
@@ -43,6 +68,7 @@ function App() {
         </Routes>
       </div>
     </Router>
+    </ErrorBoundary>
   );
 }
 

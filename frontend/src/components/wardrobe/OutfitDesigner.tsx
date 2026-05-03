@@ -11,8 +11,14 @@ interface OutfitDesignerProps {
 }
 
 export const OutfitDesigner: React.FC<OutfitDesignerProps> = ({ isOpen, onClose, onSuccess }) => {
-    const { items } = useWardrobeStore();
+    const { items, fetchItems } = useWardrobeStore();
     const [selectedItems, setSelectedItems] = useState<any[]>([]);
+
+    React.useEffect(() => {
+        if (isOpen) {
+            fetchItems();
+        }
+    }, [isOpen, fetchItems]);
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
     const [activeCategory, setActiveCategory] = useState('Tümü');
@@ -40,8 +46,8 @@ export const OutfitDesigner: React.FC<OutfitDesignerProps> = ({ isOpen, onClose,
             await api.post('/outfits', {
                 name: name || 'Yeni Kombin',
                 items: selectedItems.map(i => ({ garmentItemId: i.id })),
-                // For MVP, we use the first item's photo as cover if no snapshot
-                coverImage: null 
+                // Use the first item's cover photo as the outfit cover
+                coverUrl: selectedItems[0]?.photos?.[0]?.url || null
             });
             onSuccess();
             onClose();

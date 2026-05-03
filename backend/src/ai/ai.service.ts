@@ -1,5 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../infrastructure/prisma/prisma.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { Generate3DModelJob, GenerateAvatarJob } from './dto/ai-jobs.dto';
 import OpenAI from 'openai';
 
 @Injectable()
@@ -7,7 +10,11 @@ export class AiService {
     private readonly logger = new Logger(AiService.name);
     private openai: OpenAI | null = null;
 
-    constructor(private readonly prisma: PrismaService) {
+    constructor(
+        private readonly prisma: PrismaService,
+        @Optional() @InjectQueue('ai-tasks') private readonly aiQueue: Queue,
+        @Optional() @InjectQueue('avatar-tasks') private readonly avatarQueue: Queue
+    ) {
         const apiKey = process.env.OPENAI_API_KEY;
         if (apiKey) {
             this.openai = new OpenAI({ apiKey });
@@ -141,102 +148,91 @@ JSON formatı şu şekilde olmalıdır:
     }
 
     /**
-     * TRIPO AI - 2D to 3D Generation (PoC)
-     * This calls Tripo AI to generate a 3D Mesh from the garment image.
+     * AI Queue Integration - Offloads heavy 3D Generation to the worker
      */
     async generate3DModel(garmentId: string, imageUrl: string) {
-        const tripoKey = process.env.TRIPO_API_KEY;
-        if (!tripoKey) {
-            this.logger.warn('TRIPO_API_KEY is missing! Using Mock 3D Mesh for demonstration.');
-            // Mock delay to simulate generation
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
-            // Assign a "default" mesh path that we serve via /static
-            await this.prisma.garmentItem.update({
-                where: { id: garmentId },
-                data: { meshUrl: '/static/meshes/default_jacket.glb' }
-            });
-            return;
+        this.logger.log(`[Queue] Request to queue 3D generation for garment ${garmentId}`);
+        
+        if (!this.aiQueue) {
+            this.logger.warn('Queue is not configured. Redis is unavailable; skipping background job.');
+            return { success: false, message: 'Queue not configured. Install/start Redis to enable background jobs.' };
         }
 
-        try {
-            this.logger.log(`Starting 3D Generation for garment ${garmentId}...`);
+        const jobData: Generate3DModelJob = { garmentId, imageUrl };
+        const job = await this.aiQueue.add('generate-3d-model', jobData, {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 }
+        });
 
-            // 1. Submit task to Tripo AI
-            const response = await fetch('https://api.tripo3d.ai/v1/task', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${tripoKey}`
-                },
-                body: JSON.stringify({
-                    type: 'image_to_model',
-                    file: {
-                        type: 'jpg',
-                        url: imageUrl // Must be a public URL
-                    }
-                })
-            });
+        return { success: true, jobId: job.id, message: '3D model generation queued' };
+    }
 
-            const taskData = await response.json();
-            const taskId = taskData.data?.task_id;
-
-            if (!taskId) {
-                this.logger.error('Failed to create Tripo task, falling back to Mock:', taskData);
-                await this.prisma.garmentItem.update({
-                    where: { id: garmentId },
-                    data: { meshUrl: '/static/meshes/default_jacket.glb' }
-                });
-                return;
-            }
-
-            // 2. Poll for completion
-            let glbUrl = null;
-            for (let i = 0; i < 15; i++) {
-                await new Promise(resolve => setTimeout(resolve, 10000));
-                const statusRes = await fetch(`https://api.tripo3d.ai/v1/task/${taskId}`, {
-                    headers: { 'Authorization': `Bearer ${tripoKey}` }
-                });
-                const statusData = await statusRes.status === 200 ? await statusRes.json() : null;
-
-                if (statusData?.data?.status === 'success') {
-                    glbUrl = statusData.data.output.model;
-                    break;
-                }
-                if (statusData?.data?.status === 'failed') break;
-            }
-
-            if (glbUrl) {
-                await this.prisma.garmentItem.update({
-                    where: { id: garmentId },
-                    data: { meshUrl: glbUrl }
-                });
-                this.logger.log(`3D Generation Success for ${garmentId}: ${glbUrl}`);
-            } else {
-                this.logger.warn(`3D Generation Timed out for ${garmentId}`);
-            }
-
-        } catch (error) {
-            this.logger.error(`3D Generation Service Error for ${garmentId}`, error);
+    async generateAvatar(userId: string, selfieUrl: string, bodyPhotoUrl: string) {
+        this.logger.log(`[Queue] Request to queue avatar synthesis for user ${userId}`);
+        
+        if (!this.avatarQueue) {
+            this.logger.warn('Queue is not configured (avatarQueue). Background job skipped.');
+            return { success: false, message: 'Queue not configured.' };
         }
+
+        const jobData: GenerateAvatarJob = { userId, selfieUrl, bodyPhotoUrl };
+        const job = await this.avatarQueue.add('synthesize-avatar', jobData, {
+            attempts: 2,
+            backoff: { type: 'exponential', delay: 10000 }
+        });
+
+        return { success: true, jobId: job.id, message: 'Avatar synthesis queued' };
+    }
+
+    async getJobStatus(jobId: string) {
+        if (!this.aiQueue) {
+            this.logger.warn('Queue is not configured. getJobStatus unavailable.');
+            return { status: 'unavailable', message: 'Queue not configured.' };
+        }
+
+        const job = await this.aiQueue.getJob(jobId);
+        if (!job) return { status: 'not_found' };
+
+        const state = await job.getState();
+        const progress = job.progress;
+        const result = job.returnvalue;
+
+        return {
+            id: job.id,
+            status: state, // 'active', 'completed', 'failed', 'waiting', 'delayed'
+            progress,
+            result
+        };
     }
 
     async getEditorialResponse(userId: string) {
         const weather = this.getMockWeather();
         const wardrobe = await this.prisma.wardrobe.findUnique({
             where: { userId },
-            include: { items: true }
+            include: { items: { include: { photos: true } } }
         });
 
-        const wardrobeSummary = wardrobe?.items.map(i => `${i.category} (${i.brand})`).join(', ') || 'boş';
+        const hasItems = wardrobe?.items && wardrobe.items.length > 0;
+        const wardrobeSummary = hasItems 
+            ? wardrobe.items.map(i => `${i.category} (${i.brand})`).join(', ') 
+            : 'Şu an boş';
         
+        if (!hasItems) {
+            return {
+                headline: "Yeni Bir Başlangıç: Arşivini Oluştur",
+                article: "Dijital gardırobun şu an keşfedilmeyi bekleyen boş bir sayfa gibi. İlk parçanı ekleyerek kişisel stil analizini başlatabilirsin.",
+                suggestedCategory: 'Genel'
+            };
+        }
+
         const systemPrompt = `
             Sen elit bir moda editörüsün. Kullanıcının gardırobuna ve şu anki moda başkentlerindeki hava durumuna göre 
             günlük bir "Style Briefing" (Stil Özeti) hazırla. 
             Moda başkenti: ${weather.city}, Hava: ${weather.condition}, Sıcaklık: ${weather.temp}°C.
             Gardırop Özeti: ${wardrobeSummary}
             Ses tonu: İlham verici, sofistike, elit.
-            JSON formatında dön: {"headline": "...", "article": "...", "suggestedCategory": "..."}
+            JSON formatında dön: {"headline": "...", "article": "...", "suggestedCategory": "...", "recommendations": [{"focus": "...", "description": "..."}]}
+            (En fazla 3 adet recommendation ekle)
         `;
 
         if (this.openai) {
@@ -252,10 +248,47 @@ JSON formatı şu şekilde olmalıdır:
             }
         }
 
+        // Sophisticated, personalized fallback logic if OpenAI is not configured
+        const brandsArray = Array.from(new Set(wardrobe.items.filter(i => i.brand).map(i => i.brand)));
+        const brandsStr = brandsArray.slice(0, 2).join(' ve ');
+        const topItem = wardrobe.items.find((i: any) => i.category.includes('Giyim'));
+        const brandHighlight = topItem?.brand ? topItem.brand + " imzasını taşıyan parçanla" : "seçkin parçalarınla";
+
+        let fallbackArticle = '';
+        if (weather.city === 'Milano') {
+            fallbackArticle = `Milano'nun podyum havası sokaklara taşmışken, arşivindeki ${wardrobe.items.length} benzersiz lüks tasarım ile şehrin avangart ruhuna uyum sağlama zamanı. Özellikle ${brandHighlight} bu ${weather.temp} derecelik ${weather.condition.toLowerCase()} havada neo-klasik ve elit bir silüet çizebilirsin.`;
+        } else if (weather.city === 'Paris') {
+            fallbackArticle = `Parisien şıklık, ${weather.condition.toLowerCase()} bir günde en güçlü silaha dönüşür. Dolabındaki ${brandsStr ? brandsStr + ' gibi ' : ''}kült detayları katmanlayarak, ${weather.temp} derecenin serinliğinde eforsuz ama son derece vurucu bir profil yaratabilirsin.`;
+        } else if (weather.city === 'Londra') {
+            fallbackArticle = `Londra'nın aristokrat ve isyankar tavrı bugün sokaklarda hissediliyor. ${weather.condition.toLowerCase()} esinti, tam da "layering" (katmanlı giyim) sanatı için ideal. Arşivindeki ${wardrobe.items.length} parça ile İngiliz tarzına modern bir lüks yorumu katabilirsin.`;
+        } else {
+            fallbackArticle = `New York'un bitmez tükenmez ritmine ${weather.condition.toLowerCase()} bir gökyüzü eşlik ediyor. ${brandHighlight} yaratacağın cesur bir kontrast, metropol kalabalığı içinde gerçek bir 'statement' (lüks duruş) sergilemeni sağlayacak.`;
+        }
+
+        // Pick 3 items for the mock outfit suggestion
+        const suggestedItems: { id: string; imageUrl: string }[] = [];
+        if (hasItems) {
+            const shuffled = [...wardrobe.items].sort(() => 0.5 - Math.random());
+            shuffled.slice(0, 3).forEach(i => {
+                const photoUrl = i.photos?.[0]?.url || '';
+                suggestedItems.push({ id: i.id, imageUrl: photoUrl });
+            });
+        }
+
+        // Create mock recommendations for the UI
+        const mockRecommendations = [
+            { focus: "Katmanlı Giyim", description: "Farklı dokuları bir araya getirerek derinlik yaratın." },
+            { focus: "Kontrast Renkler", description: "Beklenmedik renk eşleşmeleriyle cesur bir duruş sergileyin." },
+            { focus: "Aksesuar Vurgusu", description: "Minimal bir kombini güçlü aksesuarlarla ön plana çıkarın." }
+        ];
+
         return {
-            headline: `${weather.city} Esintisi: ${weather.condition} Şıklığı`,
-            article: `Bugün ${weather.city} sokaklarında ${weather.temp} derece bir hava var. Gardırobundaki parçalarla bu atmosfere eşlik etmen için harika bir gün.`,
-            suggestedCategory: 'Dış Giyim'
+            headline: `${weather.city} Ruhu: ${weather.condition.split(' ')[0]} Elegance`,
+            article: fallbackArticle,
+            suggestedCategory: 'Dış Giyim',
+            suggestedItems,
+            recommendations: mockRecommendations,
+            weather: { city: weather.city, condition: weather.condition, temp: weather.temp }
         };
     }
 

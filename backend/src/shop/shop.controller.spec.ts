@@ -7,6 +7,10 @@ describe('ShopController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ShopController],
+      providers: [
+        { provide: 'ShopService', useValue: { getDiscoverItems: jest.fn() } },
+        { provide: (require('./shop.service').ShopService), useValue: { getDiscoverItems: jest.fn() } }
+      ],
     }).compile();
 
     controller = module.get<ShopController>(ShopController);

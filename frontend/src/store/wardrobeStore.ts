@@ -15,13 +15,17 @@ export interface GarmentItem {
 
 interface WardrobeState {
     items: GarmentItem[];
+    editorial: { headline: string; article: string; suggestedCategory?: string } | null;
     isLoading: boolean;
+    currentProduct: any | null;
     filters: {
         category: string | null;
         color: string | null;
     };
     setItems: (items: GarmentItem[]) => void;
+    setCurrentProduct: (product: any | null) => void;
     fetchItems: () => Promise<void>;
+    fetchEditorial: () => Promise<void>;
     deleteItem: (id: string) => Promise<void>;
     updateItem: (id: string, data: Partial<GarmentItem>) => Promise<void>;
     setFilters: (filters: Partial<WardrobeState['filters']>) => void;
@@ -30,7 +34,10 @@ interface WardrobeState {
 
 export const useWardrobeStore = create<WardrobeState>((set) => ({
     items: [],
+    editorial: null,
     isLoading: false,
+    currentProduct: null,
+    setCurrentProduct: (product) => set({ currentProduct: product }),
     filters: {
         category: null,
         color: null,
@@ -48,6 +55,16 @@ export const useWardrobeStore = create<WardrobeState>((set) => ({
         } catch (error) {
             console.error('Failed to fetch items:', error);
             set({ isLoading: false });
+        }
+    },
+    fetchEditorial: async () => {
+        try {
+            const res = await api.get('/ai/editorial');
+            if (res.status === 200) {
+                set({ editorial: res.data });
+            }
+        } catch (error) {
+            console.error('Failed to fetch editorial:', error);
         }
     },
     deleteItem: async (id) => {

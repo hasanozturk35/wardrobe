@@ -13,6 +13,10 @@ export class UsersService {
         });
     }
 
+    async count(): Promise<number> {
+        return this.prisma.user.count();
+    }
+
     async findByEmail(email: string): Promise<User | null> {
         return this.prisma.user.findUnique({
             where: { email },
@@ -49,6 +53,13 @@ export class UsersService {
                 resetToken: null,
                 resetTokenExpires: null,
             },
+        });
+    }
+
+    async updateRole(userId: string, role: string) {
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: { role: role as any },
         });
     }
 }

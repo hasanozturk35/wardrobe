@@ -1,7 +1,8 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Shirt, Compass, Users, Calendar, Sparkles, BarChart3, UserCircle, Layout, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Shirt, Layout, Sparkles, Compass, Users, BarChart3, UserCircle, ShieldCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const navItems = [
     { icon: Shirt, label: 'Wardrobe', path: '/wardrobe' },
@@ -21,30 +22,45 @@ export const NavigationDock: React.FC = () => {
     const { user } = useAuthStore();
 
     return (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
-            <div className="bg-white/40 backdrop-blur-2xl border border-white/40 rounded-[2.5rem] px-4 py-3 shadow-[0_20px_50px_rgba(0,0,0,0.1)] flex items-center gap-2">
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] w-full max-w-fit px-6">
+            <div className="bg-white/80 backdrop-blur-3xl border border-white/60 rounded-[3rem] px-3 py-2 shadow-[0_30px_60px_rgba(0,0,0,0.15)] flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                 {navItems.map((item) => {
-                    if (item.adminOnly && user?.role !== 'ADMIN') return null;
+                    // Force admin visibility if email starts with admin@
+                    const isAdminByEmail = user?.email?.toLowerCase().startsWith('admin@');
+                    const hasAdminAccess = user?.role === 'ADMIN' || isAdminByEmail;
+
+                    if (item.adminOnly && !hasAdminAccess) return null;
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
                     return (
                         <button
                             key={item.path}
                             onClick={() => navigate(item.path)}
-                            className={`flex flex-col items-center gap-1.5 px-5 py-2.5 rounded-[2rem] transition-all duration-300 group ${
+                            className={`flex flex-col items-center gap-1 px-4 py-3 rounded-[2.5rem] transition-all duration-500 group whitespace-nowrap ${
                                 isActive 
-                                ? 'bg-black text-white shadow-lg scale-105' 
-                                : 'text-gray-500 hover:text-black hover:bg-white/50'
+                                ? 'bg-black text-white shadow-2xl scale-110 -translate-y-1' 
+                                : 'text-gray-400 hover:text-black hover:bg-gray-50/50'
                             }`}
                         >
-                            <Icon size={20} strokeWidth={isActive ? 2.5 : 2} className="transition-transform group-hover:scale-110" />
-                            <span className={`text-[10px] font-bold uppercase tracking-[0.15em] font-serif ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-70 transition-opacity'}`}>
-                                {item.label}
-                            </span>
+                            <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className="transition-transform group-hover:scale-110" />
+                            {isActive && (
+                                <motion.span 
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="text-[8px] font-black uppercase tracking-[0.2em] font-serif"
+                                >
+                                    {item.label}
+                                </motion.span>
+                            )}
                         </button>
                     );
                 })}
             </div>
+            
+            <style>{`
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
         </div>
     );
 };

@@ -8,37 +8,35 @@ import { v4 as uuidv4 } from 'uuid';
 export class OutfitsService {
     constructor(private prisma: PrismaService) { }
 
-    async createOutfit(userId: string, data: { name?: string, description?: string, coverImage?: string | null, items: { garmentItemId: string, slot?: string }[] }) {
-        let coverUrl = null;
+    async createOutfit(userId: string, data: { name?: string, description?: string, coverImage?: string | null, coverUrl?: string | null, items: { garmentItemId: string, slot?: string }[] }) {
+        let finalCoverUrl = data.coverUrl || null;
 
-        if (data.coverImage) {
+        // Only try to save base64 if we don't have a direct URL
+        if (data.coverImage && !finalCoverUrl) {
             try {
-                // Ensure directory exists
                 const outfitsDir = path.join(process.cwd(), 'uploads', 'outfits');
                 if (!fs.existsSync(outfitsDir)) {
                     fs.mkdirSync(outfitsDir, { recursive: true });
                 }
 
-                // Decode base64
                 const base64Data = data.coverImage.replace(/^data:image\/\w+;base64,/, "");
                 const buffer = Buffer.from(base64Data, 'base64');
                 const filename = `outfit_${uuidv4()}.jpg`;
                 const filepath = path.join(outfitsDir, filename);
 
                 fs.writeFileSync(filepath, buffer);
-                coverUrl = `/static/outfits/${filename}`;
+                finalCoverUrl = `/static/outfits/${filename}`;
             } catch (error) {
                 console.error('Failed to save outfit snapshot:', error);
             }
         }
 
-        // Build the outfit creation object
         return this.prisma.outfit.create({
             data: {
                 userId,
                 name: data.name,
                 description: data.description,
-                coverUrl,
+                coverUrl: finalCoverUrl,
                 items: {
                     create: data.items.map(item => ({
                         garmentItemId: item.garmentItemId,

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, UseInterceptors, UploadedFile, Param } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -23,5 +23,10 @@ export class AiController {
     @UseInterceptors(FileInterceptor('image'))
     async analyzeImage(@UploadedFile() file: Express.Multer.File) {
         return this.aiService.analyzeGarmentImage(file);
+    }
+
+    @Get('job-status/:id')
+    async getJobStatus(@Param('id') id: string) {
+        return this.aiService.getJobStatus(id);
     }
 }

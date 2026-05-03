@@ -7,6 +7,7 @@ import { diskStorage } from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
 import sharp from 'sharp';
+import { CreateItemDto, UpdateItemDto } from './dto/wardrobe.dto';
 
 @Controller('wardrobe')
 @UseGuards(AuthGuard('jwt'))
@@ -32,14 +33,14 @@ export class WardrobeController {
         })
     }))
     async addItem(
-        @Request() req: any,
-        @Body() body: { category: string, brand?: string, colors: string | string[], seasons: string | string[] },
+        @Request() req: { user: { userId: string } },
+        @Body() body: CreateItemDto,
         @UploadedFiles() files: Express.Multer.File[]
     ) {
         try {
             // Multi-select fix for form-data (strings might come as single or array)
-            const colors = typeof body.colors === 'string' ? [body.colors] : body.colors;
-            const seasons = typeof body.seasons === 'string' ? [body.seasons] : body.seasons;
+            const colors = typeof body.colors === 'string' ? [body.colors] : (body.colors || []);
+            const seasons = typeof body.seasons === 'string' ? [body.seasons] : (body.seasons || []);
 
             const photoUrls: string[] = [];
 
@@ -54,49 +55,35 @@ export class WardrobeController {
                     let photoUrlToSave = `/static/${file.filename}`; // Fallback
 
                     try {
-                        // Generate optimized image
                         await sharp(originalPath)
                             .resize({ width: 800, withoutEnlargement: true })
                             .jpeg({ quality: 80 })
                             .toFile(optimizedPath);
 
-                        // Generate thumbnail
                         await sharp(originalPath)
                             .resize(400, 400, { fit: 'cover', position: 'center' })
                             .jpeg({ quality: 70 })
                             .toFile(thumbPath);
 
-                        // Delete original to save space
                         try { fs.unlinkSync(originalPath); } catch (e) { }
-
                         photoUrlToSave = `/static/${optimizedFilename}`;
                     } catch (sharpError) {
-                        console.error('Sharp processing error, falling back to original image:', sharpError);
-                        // Do not delete originalPath, we will serve it directly as fallback
+                        console.error('Sharp processing error:', sharpError);
                     }
-
-                    // Save image URL to db
                     photoUrls.push(photoUrlToSave);
                 }
+            } else if (body.imageUrl) {
+                photoUrls.push(body.imageUrl);
             }
 
-            const newItem = await this.wardrobeService.addItem(req.user.userId, {
+            return await this.wardrobeService.addItem(req.user.userId, {
                 ...body,
-                colors: colors || [],
-                seasons: seasons || [],
+                colors,
+                seasons,
                 photoUrls
             });
-
-            // Start 3D Generation in background if we have a photo
-            if (photoUrls.length > 0) {
-                // Determine absolute URL for Tripo (PoC assuming public tunnel or direct access)
-                const fullUrl = `${req.protocol}://${req.get('host')}${photoUrls[0]}`;
-                this.aiService.generate3DModel(newItem.id, fullUrl).catch((e: any) => console.error('BG Mesh Gen Error', e));
-            }
-
-            return newItem;
         } catch (globalErr) {
-            try { fs.writeFileSync('upload_error.log', globalErr.stack || globalErr.toString()); } catch (e) { }
+            console.error('Add Item Error:', globalErr);
             throw globalErr;
         }
     }
@@ -108,12 +95,12 @@ export class WardrobeController {
 
     @Post('items/:id') // Using POST for update if multipart/form-data is used, or PATCH for JSON
     async updateItem(
-        @Request() req: any,
+        @Request() req: { user: { userId: string } },
         @Param('id') id: string,
-        @Body() body: { category?: string, brand?: string, colors?: string | string[], seasons?: string | string[] }
+        @Body() body: UpdateItemDto
     ) {
-        const colors = typeof body.colors === 'string' ? [body.colors] : body.colors;
-        const seasons = typeof body.seasons === 'string' ? [body.seasons] : body.seasons;
+        const colors = typeof body.colors === 'string' ? [body.colors] : (body.colors || []);
+        const seasons = typeof body.seasons === 'string' ? [body.seasons] : (body.seasons || []);
 
         return this.wardrobeService.updateItem(req.user.userId, id, {
             ...body,

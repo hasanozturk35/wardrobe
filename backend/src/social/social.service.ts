@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../infrastructure/prisma/prisma.service';
+import { SocialGateway } from './social.gateway';
 
 @Injectable()
 export class SocialService {
-    constructor(private prisma: PrismaService) {}
+    constructor(
+        private prisma: PrismaService,
+        private gateway: SocialGateway,
+    ) {}
 
     async getPublicFeed() {
         return this.prisma.outfit.findMany({
@@ -33,51 +37,63 @@ export class SocialService {
             throw new NotFoundException('Outfit not found or unauthorized');
         }
 
-        return this.prisma.outfit.update({
+        const updated = await this.prisma.outfit.update({
             where: { id: outfitId },
             data: { isPublic: !outfit.isPublic }
         });
+
+        if (updated.isPublic) {
+            const fullPost = await this.prisma.outfit.findUnique({
+                where: { id: outfitId },
+                include: {
+                    user: { select: { id: true, name: true, avatarUrl: true } },
+                    items: { include: { garmentItem: true } },
+                    _count: { select: { likes: true, comments: true } }
+                }
+            });
+            this.gateway.emitNewPost(fullPost);
+        }
+
+        return updated;
     }
 
     async toggleLike(userId: string, outfitId: string) {
         const existingLike = await this.prisma.like.findUnique({
-            where: {
-                outfitId_userId: { outfitId, userId }
-            }
+            where: { outfitId_userId: { outfitId, userId } }
         });
 
         if (existingLike) {
-            return this.prisma.like.delete({
-                where: { id: existingLike.id }
-            });
+            await this.prisma.like.delete({ where: { id: existingLike.id } });
+        } else {
+            await this.prisma.like.create({ data: { outfitId, userId } });
         }
 
-        return this.prisma.like.create({
-            data: { outfitId, userId }
-        });
+        const count = await this.prisma.like.count({ where: { outfitId } });
+        this.gateway.emitLikeUpdate(outfitId, count);
+
+        return { liked: !existingLike, count };
     }
 
     async addComment(userId: string, outfitId: string, content: string) {
-        return this.prisma.comment.create({
+        const comment = await this.prisma.comment.create({
             data: { userId, outfitId, content },
             include: {
-                user: {
-                    select: { id: true, name: true, avatarUrl: true }
-                }
+                user: { select: { id: true, name: true, avatarUrl: true } }
             }
         });
+
+        this.gateway.emitNewComment(outfitId, comment);
+
+        return comment;
     }
 
     async getComments(outfitId: string) {
         return this.prisma.comment.findMany({
             where: { outfitId },
             include: {
-                user: {
-                    select: { id: true, name: true, avatarUrl: true }
-                }
+                user: { select: { id: true, name: true, avatarUrl: true } }
             },
             orderBy: { createdAt: 'desc' }
         });
     }
 }
-

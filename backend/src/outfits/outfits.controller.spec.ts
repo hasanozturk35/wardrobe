@@ -7,6 +7,10 @@ describe('OutfitsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [OutfitsController],
+      providers: [
+        { provide: 'OutfitsService', useValue: {} },
+        { provide: (require('./outfits.service').OutfitsService), useValue: {} }
+      ],
     }).compile();
 
     controller = module.get<OutfitsController>(OutfitsController);

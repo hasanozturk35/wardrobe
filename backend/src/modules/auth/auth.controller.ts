@@ -1,6 +1,8 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req, Res, BadRequestException, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import * as express from 'express';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './auth.dto';
+import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -45,5 +47,30 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Post('change-password')
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.OK)
+  async changePassword(@Body() dto: ChangePasswordDto, @Req() req: any) {
+    return this.authService.changePassword(req.user.userId, dto);
+  }
+ 
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleAuth(@Req() req: any) {
+    // Guards handles the redirection
+  }
+ 
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthRedirect(@Req() req: any, @Res() res: express.Response) {
+    // Handle the user returned by Google Strategy
+    const result = await this.authService.loginOAuth(req.user, req.ip, req.headers['user-agent']);
+    
+    // Redirect back to frontend with tokens in URL (Simplest for MVP)
+    // Or set as a cookie. For now, we'll redirect to a callback page on frontend
+    const redirectUrl = `http://localhost:5173/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`;
+    return res.redirect(redirectUrl);
   }
 }

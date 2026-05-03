@@ -2,6 +2,7 @@ import {
     Controller,
     Post,
     Get,
+    Body,
     Request,
     UseGuards,
     UseInterceptors,
@@ -90,6 +91,13 @@ export class AvatarController {
     @Post('trigger-synthesis')
     async triggerSynthesis(@Request() req: any) {
         const userId = req.user.userId || req.user.sub || req.user.id;
-        return this.avatarService.triggerSynthesisPlaceholder(userId);
+        return this.avatarService.triggerSynthesis(userId);
+    }
+
+    @Post('set-url')
+    async setAvatarUrl(@Request() req: any, @Body() body: { url: string }) {
+        if (!body?.url) throw new BadRequestException('url is required');
+        const userId = req.user.userId || req.user.sub || req.user.id;
+        return this.avatarService.setAvatarUrl(userId, body.url);
     }
 }

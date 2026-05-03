@@ -20,26 +20,35 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.16",
+    "@nestjs/platform-socket.io": "^11.1.19",
     "@nestjs/serve-static": "^5.0.4",
     "@nestjs/throttler": "^6.5.0",
+    "@nestjs/websockets": "^11.1.19",
     "@prisma/client": "^6.4.1",
     "@types/bcryptjs": "^2.4.2",
+    "@types/nodemailer": "^8.0.0",
+    "@types/passport-google-oauth20": "^2.0.17",
     "bcryptjs": "^2.4.3",
+    "bullmq": "^5.73.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "multer": "^2.1.1",
+    "nodemailer": "^8.0.7",
     "openai": "^6.27.0",
     "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.34.5",
+    "socket.io": "^4.8.3",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
@@ -83,10 +92,16 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(uuid)/)"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }

@@ -23,10 +23,16 @@ export class AuthService {
             const hashedPassword = await bcrypt.hash(registerDto.password, 10);
             
             console.log('[Auth] Creating user and wardrobe in DB...');
+            
+            // Check if this is the first user or has admin email (case-insensitive)
+            const userCount = await this.usersService.count();
+            const role = (userCount === 0 || registerDto.email.toLowerCase().startsWith('admin@')) ? 'ADMIN' : 'USER';
+
             const user = await this.usersService.createUser({
                 email: registerDto.email,
                 passwordHash: hashedPassword,
                 name: registerDto.name,
+                role: role as any,
                 wardrobe: {
                     create: {}
                 }
@@ -68,8 +74,17 @@ export class AuthService {
                 throw new UnauthorizedException('Invalid credentials');
             }
 
-            console.log('[Auth] Password valid. Generating tokens...');
-            const tokens = await this.generateTokens(user.id, user.email, user.role);
+            console.log('[Auth] Password valid. Checking for role elevation...');
+            
+            let userRole = user.role;
+            if (loginDto.email.toLowerCase().startsWith('admin@') && user.role !== 'ADMIN') {
+                console.log('[Auth] Elevating user to ADMIN based on email prefix (case-insensitive)');
+                const updatedUser = await this.usersService.updateRole(user.id, 'ADMIN');
+                userRole = updatedUser.role;
+            }
+
+            console.log('[Auth] Generating tokens...');
+            const tokens = await this.generateTokens(user.id, user.email, userRole);
             
             console.log('[Auth] Login successful for:', loginDto.email);
             return {
@@ -77,7 +92,7 @@ export class AuthService {
                     id: user.id,
                     email: user.email,
                     name: user.name,
-                    role: user.role,
+                    role: userRole,
                 },
                 ...tokens
             };

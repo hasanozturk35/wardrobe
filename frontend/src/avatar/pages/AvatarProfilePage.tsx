@@ -45,14 +45,18 @@ const AvatarProfilePage: React.FC = () => {
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-black/5 space-y-10">
               <div className="flex items-center gap-4">
-                <div className="w-3 h-3 rounded-full bg-black animate-pulse" />
-                <span className="text-[10px] uppercase font-bold tracking-widest">{data?.status}</span>
+                <div className={`w-3 h-3 rounded-full ${data?.status === 'ready' ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
+                <span className="text-[10px] uppercase font-bold tracking-widest capitalize">{data?.status || 'pending'}</span>
               </div>
               
               <div className="space-y-6">
-                <div className="flex items-center gap-4 text-gray-400">
+                <div className={`flex items-center gap-4 ${data?.url ? 'text-green-600' : 'text-gray-400'}`}>
+                  <User size={18} strokeWidth={1.5} />
+                  <span className="text-[11px] uppercase tracking-widest">Neural Selfie: {data?.url ? '✓' : '−'}</span>
+                </div>
+                <div className={`flex items-center gap-4 ${data?.metadata?.body_photo_url ? 'text-green-600' : 'text-gray-400'}`}>
                   <Activity size={18} strokeWidth={1.5} />
-                  <span className="text-[11px] uppercase tracking-widest">Body Geometry: Active</span>
+                  <span className="text-[11px] uppercase tracking-widest">Body Geometry: {data?.metadata?.body_photo_url ? '✓' : '−'}</span>
                 </div>
                 <div className="flex items-center gap-4 text-gray-400">
                   <ShieldCheck size={18} strokeWidth={1.5} />
@@ -60,7 +64,7 @@ const AvatarProfilePage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-4 text-gray-400">
                   <Clock size={18} strokeWidth={1.5} />
-                  <span className="text-[11px] uppercase tracking-widest">Last Sync: {new Date(data?.updatedAt).toLocaleDateString()}</span>
+                  <span className="text-[11px] uppercase tracking-widest">Synced: {data?.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : 'Never'}</span>
                 </div>
               </div>
 
@@ -68,33 +72,62 @@ const AvatarProfilePage: React.FC = () => {
                 onClick={() => navigate('/avatar/onboarding')}
                 className="w-full py-6 bg-black text-white rounded-full text-[10px] uppercase font-bold tracking-[0.2em] transition-transform hover:scale-[1.02]"
               >
-                Recalibrate Identity
+                {data?.url ? 'Update Avatar' : 'Create Avatar'}
               </button>
             </div>
           </div>
 
-          {/* Asset Gallery */}
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="group relative aspect-[3/4] bg-white rounded-[2.5rem] border border-black/5 overflow-hidden">
-               {data?.url ? (
-                 <img src={data.url} className="w-full h-full object-cover grayscale transition-all group-hover:grayscale-0" alt="Selfie" />
-               ) : (
-                 <div className="w-full h-full flex items-center justify-center"><User size={48} className="opacity-10" /></div>
-               )}
-               <div className="absolute top-8 left-8 bg-black/5 backdrop-blur-md px-4 py-2 rounded-full text-[9px] uppercase font-bold tracking-widest border border-white/20">
-                 01. Neural Selfie
-               </div>
+          {/* 3D Avatar Display */}
+          <div className="lg:col-span-2 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Selfie Card */}
+              <div className="group relative bg-gradient-to-br from-blue-50 to-indigo-50 rounded-[2.5rem] border border-black/5 overflow-hidden shadow-lg transition-all hover:shadow-xl">
+                {data?.url ? (
+                  <>
+                    <img src={data.url} className="w-full h-64 object-cover" alt="Neural Selfie" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </>
+                ) : (
+                  <div className="w-full h-64 flex items-center justify-center bg-gray-100">
+                    <User size={48} className="opacity-20" />
+                  </div>
+                )}
+                <div className="p-6 bg-white/95 backdrop-blur-sm">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-600 mb-2">01. Neural Selfie</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">Facial geometry captured</p>
+                </div>
+              </div>
+
+              {/* Body Photo Card */}
+              <div className="group relative bg-gradient-to-br from-amber-50 to-orange-50 rounded-[2.5rem] border border-black/5 overflow-hidden shadow-lg transition-all hover:shadow-xl">
+                {data?.metadata?.body_photo_url ? (
+                  <>
+                    <img src={data.metadata.body_photo_url} className="w-full h-64 object-cover" alt="Body Geometry" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </>
+                ) : (
+                  <div className="w-full h-64 flex items-center justify-center bg-gray-100">
+                    <Activity size={48} className="opacity-20" />
+                  </div>
+                )}
+                <div className="p-6 bg-white/95 backdrop-blur-sm">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-600 mb-2">02. Body Geometry</p>
+                  <p className="text-xs text-gray-500 leading-relaxed">Body pose and proportions</p>
+                </div>
+              </div>
             </div>
 
-            <div className="group relative aspect-[3/4] bg-white rounded-[2.5rem] border border-black/5 overflow-hidden">
-               {data?.metadata?.body_photo_url ? (
-                 <img src={data.metadata.body_photo_url} className="w-full h-full object-cover grayscale transition-all group-hover:grayscale-0" alt="Body Geometry" />
-               ) : (
-                 <div className="w-full h-full flex items-center justify-center opacity-5"><Activity size={48} /></div>
-               )}
-               <div className="absolute top-8 left-8 bg-black/5 backdrop-blur-md px-4 py-2 rounded-full text-[9px] uppercase font-bold tracking-widest border border-white/20">
-                 02. Body Map
-               </div>
+            {/* Avatar Status Box */}
+            <div className="bg-gradient-to-r from-black/5 to-black/0 rounded-[2.5rem] border border-black/10 p-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-[0.3em] text-gray-600 mb-2">AVATAR STATUS</p>
+                  <p className="text-sm text-gray-700">{data?.url && data?.metadata?.body_photo_url ? '✓ Ready for Virtual Try-Ons' : '− Incomplete. Complete onboarding to activate.'}</p>
+                </div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${data?.url && data?.metadata?.body_photo_url ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                  {data?.url && data?.metadata?.body_photo_url ? '✓' : '○'}
+                </div>
+              </div>
             </div>
           </div>
         </section>

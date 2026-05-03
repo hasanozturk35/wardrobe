@@ -157,8 +157,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
-            <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[85vh]">
                 <div className="w-full md:w-1/2 bg-gray-50 flex flex-col p-8 border-b md:border-b-0 md:border-r border-gray-100 relative max-h-[50vh] md:max-h-none overflow-y-auto">
                     <div className="grid grid-cols-2 gap-4 mb-4">
                         {previews.map((previewUrl, idx) => (
@@ -299,8 +299,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
 
                     <button
                         type="submit"
-                        disabled={loading || images.length === 0}
-                        className={`w-full mt-8 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${loading || images.length === 0
+                        disabled={loading || (!editItem && images.length === 0)}
+                        className={`w-full mt-8 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${loading || (!editItem && images.length === 0)
                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             : 'bg-black text-white hover:scale-[1.02] active:scale-95 shadow-xl shadow-black/10'
                             }`}
