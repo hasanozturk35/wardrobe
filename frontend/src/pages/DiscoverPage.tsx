@@ -62,22 +62,24 @@ const CURATED_CATALOG: Product[] = [
     // ── Kadın (8 ürün) ─────────────────────────────────────────────────────────
     {
         id: 'k-01', title: 'Midi Etek', brand: 'Zara', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1583496664160-39c17360801d?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1548690312-e3b507d8c110?w=800&q=80',
         category: 'Alt Giyim', productUrl: brandUrl('Zara', 'Kadın', 'midi etek'),
     },
     {
         id: 'k-02', title: 'Saten Bluz', brand: 'Pull&Bear', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
+        imageUrl: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&q=80',
         category: 'Üst Giyim', productUrl: brandUrl('Pull&Bear', 'Kadın', 'saten bluz'),
     },
     {
         id: 'k-03', title: 'Mom Jean', brand: 'Bershka', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1604176354204-9268737828e4?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=80',
         category: 'Alt Giyim', productUrl: brandUrl('Bershka', 'Kadın', 'mom jean'),
     },
     {
         id: 'k-04', title: 'Oversize Blazer', brand: 'Zara', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80',
+        category: 'Dış Giyim', productUrl: brandUrl('Zara', 'Kadın', 'oversize blazer'),
+    },
         category: 'Dış Giyim', productUrl: brandUrl('Zara', 'Kadın', 'oversize blazer'),
     },
     {
@@ -97,68 +99,68 @@ const CURATED_CATALOG: Product[] = [
     },
     {
         id: 'k-08', title: 'Örme Kazak', brand: 'Pull&Bear', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1617391654929-0c1a1bd706f1?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80',
         category: 'Üst Giyim', productUrl: brandUrl('Pull&Bear', 'Kadın', 'örme kazak'),
     },
     {
         id: 'k-09', title: 'Mini Etek', brand: 'Bershka', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&q=80',
         category: 'Alt Giyim', productUrl: brandUrl('Bershka', 'Kadın', 'mini etek'),
     },
     {
         id: 'k-10', title: 'Keten Gömlek', brand: 'Mavi', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800&q=80',
         category: 'Üst Giyim', productUrl: brandUrl('Mavi', 'Kadın', 'keten gömlek'),
     },
     // ── Erkek (10 ürün) ────────────────────────────────────────────────────────
     {
         id: 'e-01', title: 'Slim Fit Chino', brand: 'Zara', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=80',
         category: 'Alt Giyim', productUrl: brandUrl('Zara', 'Erkek', 'slim fit chino'),
     },
     {
         id: 'e-02', title: 'Oxford Gömlek', brand: 'Mavi', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1520006048725-9afd01b1fda3?w=800&q=80',
         category: 'Üst Giyim', productUrl: brandUrl('Mavi', 'Erkek', 'oxford gömlek'),
     },
     {
         id: 'e-03', title: 'Oversize Sweatshirt', brand: 'Bershka', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80',
         category: 'Üst Giyim', productUrl: brandUrl('Bershka', 'Erkek', 'oversize sweatshirt'),
     },
     {
         id: 'e-04', title: 'Denim Ceket', brand: 'LC Waikiki', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1601333144130-8cbb312386b6?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=800&q=80',
         category: 'Dış Giyim', productUrl: brandUrl('LC Waikiki', 'Erkek', 'denim ceket'),
     },
     {
         id: 'e-05', title: 'Slim Jean', brand: 'Mavi', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&q=80',
         category: 'Alt Giyim', productUrl: brandUrl('Mavi', 'Erkek', 'slim jean'),
     },
     {
         id: 'e-06', title: 'Basic Tişört', brand: 'Pull&Bear', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1489749798305-4fea3ba63d60?w=800&q=80',
         category: 'Üst Giyim', productUrl: brandUrl('Pull&Bear', 'Erkek', 'basic tişört'),
     },
     {
         id: 'e-07', title: 'Şişme Mont', brand: 'DeFacto', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1544022613-e87ef7556554?w=800&q=80',
+        imageUrl: 'https://images.unsplash.com/photo-1539533057403-0c6688c566fa?w=800&q=80',
         category: 'Dış Giyim', productUrl: brandUrl('DeFacto', 'Erkek', 'şişme mont'),
     },
     {
         id: 'e-08', title: 'Polo Gömlek', brand: 'Koton', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&q=80',
         category: 'Üst Giyim', productUrl: brandUrl('Koton', 'Erkek', 'polo gömlek'),
     },
     {
         id: 'e-09', title: 'Regular Jean', brand: 'LC Waikiki', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1548622783-f82b0e3b2efb?w=800&q=80',
         category: 'Alt Giyim', productUrl: brandUrl('LC Waikiki', 'Erkek', 'regular jean'),
     },
     {
         id: 'e-10', title: 'Kapüşonlu Sweatshirt', brand: 'Pull&Bear', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80&fit=crop',
+        imageUrl: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80',
         category: 'Üst Giyim', productUrl: brandUrl('Pull&Bear', 'Erkek', 'kapüşonlu sweatshirt'),
     },
 ];

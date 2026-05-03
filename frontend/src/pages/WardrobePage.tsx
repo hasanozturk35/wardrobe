@@ -1,58 +1,131 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Plus, Search, Trash2,
-    Sparkles, TrendingUp, Menu, Package
+    Plus, Search, Trash2, Heart, Bookmark, RefreshCw,
+    Sparkles, TrendingUp, Menu, Package, PlusCircle, User, X,
+    Wand2, ShoppingBag, Flame, Zap
 } from 'lucide-react';
 import { useWardrobeStore } from '../store/wardrobeStore';
 import { useUIStore } from '../store/uiStore';
 import { getImageUrl } from '../config';
 import { AddItemModal } from '../components/wardrobe/AddItemModal';
-import GarmentDetailModal from '../components/wardrobe/GarmentDetailModal';
 
-const CATEGORIES = ['Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'];
+const CATEGORIES = ['Hepsi', 'Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'];
+
+const CITIES = [
+    { city: 'New York', style: 'Güneşli Elegance', temp: 22, color: 'from-amber-500/20 to-orange-900/40', accent: 'text-amber-200' },
+    { city: 'Paris', style: 'Romantik Minimalizm', temp: 18, color: 'from-rose-500/20 to-pink-900/40', accent: 'text-rose-200' },
+    { city: 'Tokyo', style: 'Neon Avant-Garde', temp: 24, color: 'from-purple-500/20 to-indigo-900/40', accent: 'text-purple-200' },
+    { city: 'Milan', style: 'Klasik İhtişam', temp: 26, color: 'from-emerald-500/20 to-green-900/40', accent: 'text-emerald-200' },
+];
 
 const WardrobePage: React.FC = () => {
-    const { items, fetchItems, deleteItem } = useWardrobeStore();
+    const { fetchItems, deleteItem } = useWardrobeStore();
+    
+    // MOCK VERİ: Kendi yatağında/halısında çekilmiş hissiyatı veren amatör ama lüks estetik kıyafetler
+    const items = [
+        {
+            id: 'demo-1',
+            category: 'Üst Giyim',
+            brand: 'Siyah Oversize Tişört',
+            fabric: '%100 Pamuk',
+            photos: [{ url: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80' }]
+        },
+        {
+            id: 'demo-2',
+            category: 'Alt Giyim',
+            brand: 'Vintage Blue Jean',
+            fabric: 'Kalın Denim',
+            photos: [{ url: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&q=80' }]
+        },
+        {
+            id: 'demo-3',
+            category: 'Ayakkabı',
+            brand: 'Vans Old Skool',
+            fabric: 'Süet / Kanvas',
+            photos: [{ url: 'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&q=80' }]
+        },
+        {
+            id: 'demo-4',
+            category: 'Dış Giyim',
+            brand: 'Retro Denim Ceket',
+            fabric: 'Denim',
+            photos: [{ url: 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=800&q=80' }]
+        },
+        {
+            id: 'demo-5',
+            category: 'Üst Giyim',
+            brand: 'Krem Triko Kazak',
+            fabric: 'Yün Karışım',
+            photos: [{ url: 'https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=800&q=80' }]
+        },
+        {
+            id: 'demo-6',
+            category: 'Ayakkabı',
+            brand: 'Beyaz Sneaker',
+            fabric: 'Deri',
+            photos: [{ url: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&q=80' }]
+        },
+        {
+            id: 'demo-7',
+            category: 'Üst Giyim',
+            brand: 'Oduncu Gömlek',
+            fabric: 'Pazen',
+            photos: [{ url: 'https://images.unsplash.com/photo-1604085449557-0b0c4ebafbe9?w=800&q=80' }]
+        },
+        {
+            id: 'demo-8',
+            category: 'Alt Giyim',
+            brand: 'Siyah Kumaş Pantolon',
+            fabric: 'Keten',
+            photos: [{ url: 'https://images.unsplash.com/photo-1604176354204-9268737828e4?w=800&q=80' }]
+        },
+        {
+            id: 'demo-9',
+            category: 'Aksesuar',
+            brand: 'Hardal Bere',
+            fabric: 'Yün',
+            photos: [{ url: 'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=800&q=80' }]
+        }
+    ];
     const { openMenu, showToast } = useUIStore();
     const [searchTerm, setSearchTerm]         = useState('');
     const [activeCategory, setActiveCategory] = useState('Hepsi');
+    
     const [selectedItem, setSelectedItem]     = useState<any>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [editingItem, setEditingItem]       = useState<any>(null);
-    const [editorial, setEditorial]           = useState<any>(null);
+    
+    // Luxury UX states
+    const [favorites, setFavorites] = useState<Set<string>>(new Set());
+    const [outfitItems, setOutfitItems] = useState<any[]>([]);
+    const [isOutfitBuilderOpen, setIsOutfitBuilderOpen] = useState(false);
+    
+    const [isAIFullscreen, setIsAIFullscreen] = useState(false);
+    const [cityIdx, setCityIdx] = useState(0);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
     useEffect(() => {
         fetchItems();
-        fetchEditorial();
+        
+        const handleMouseMove = (e: MouseEvent) => setMousePos({ x: e.clientX, y: e.clientY });
+        window.addEventListener('mousemove', handleMouseMove);
+        
+        const interval = setInterval(() => {
+            setCityIdx((prev) => (prev + 1) % CITIES.length);
+        }, 6000);
+        
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            clearInterval(interval);
+        };
     }, []);
-
-    const fetchEditorial = async () => {
-        try {
-            const token  = localStorage.getItem('token');
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-            const res    = await fetch(`${apiUrl}/ai/editorial`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
-            if (res.ok) {
-                setEditorial(await res.json());
-            } else {
-                setEditorial({ headline: 'Style Oracle', article: 'Gardırobun analiz ediliyor, birkaç saniye bekle.' });
-            }
-        } catch {
-            setEditorial({ headline: 'Style Oracle', article: 'Sunucuya bağlanılamadı.' });
-        }
-    };
 
     const stats = useMemo(() => {
         const total = items.length;
-        if (total === 0) return { total: 0, data: [], label: 'Boş Arşiv' };
-        const data = CATEGORIES.map(cat => {
-            const count = items.filter(i => i.category === cat).length;
-            return { name: cat, count, percentage: Math.round((count / total) * 100) };
-        });
+        if (total === 0) return { total: 0, label: 'Boş Arşiv' };
         const label = total > 15 ? 'Avant-Garde' : total > 5 ? 'Capsule' : 'Minimalist';
-        return { total, data, label };
+        return { total, label };
     }, [items]);
 
     const categoryCount = (cat: string) =>
@@ -67,384 +140,645 @@ const WardrobePage: React.FC = () => {
         return matchSearch && matchCat;
     });
 
-    const handleAdd    = () => { setEditingItem(null); setIsAddModalOpen(true); };
-    const handleEdit   = (item: any) => { setEditingItem(item); setSelectedItem(null); setIsAddModalOpen(true); };
-    const handleDelete = async (id: string) => { await deleteItem(id); setSelectedItem(null); showToast('Parça arşivden çıkarıldı.'); };
+    const handleAdd = () => setIsAddModalOpen(true);
+    const handleDelete = async (id: string) => { 
+        await deleteItem(id); 
+        setSelectedItem(null); 
+        showToast('Parça arşivden çıkarıldı.'); 
+    };
+
+    const toggleFavorite = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        const newFavs = new Set(favorites);
+        if (newFavs.has(id)) newFavs.delete(id);
+        else newFavs.add(id);
+        setFavorites(newFavs);
+    };
+
+    const addToOutfit = (e: React.MouseEvent, item: any) => {
+        e.stopPropagation();
+        if (!outfitItems.find(i => i.id === item.id)) {
+            setOutfitItems([...outfitItems, item]);
+            setIsOutfitBuilderOpen(true);
+            showToast('Kombine eklendi!');
+        }
+    };
+
+    const removeFromOutfit = (id: string) => {
+        setOutfitItems(outfitItems.filter(i => i.id !== id));
+        if (outfitItems.length === 1) setIsOutfitBuilderOpen(false);
+    };
+
+    // Gamification & AI Data
+    const dominantStyle = items.length > 5 ? 'Minimalist' : 'Casual';
+    const stylePercentage = items.length > 5 ? 88 : 60;
+    const styleScore = 85;
+    const dailyStreak = 12;
+
+    const activeCity = CITIES[cityIdx];
+
+    // AI Outfit Logic
+    const [aiOutfitCards, setAiOutfitCards] = useState<any[]>([]);
+    
+    const generateOutfit = () => {
+        if (items.length === 0) return;
+        const tops = items.filter(i => i.category === 'Üst Giyim');
+        const bottoms = items.filter(i => i.category === 'Alt Giyim');
+        const shoes = items.filter(i => i.category === 'Ayakkabı' || i.category === 'Dış Giyim' || i.category === 'Aksesuar');
+        
+        const top = tops.length > 0 ? tops[Math.floor(Math.random() * tops.length)] : items[Math.floor(Math.random() * items.length)];
+        const bottom = bottoms.length > 0 ? bottoms[Math.floor(Math.random() * bottoms.length)] : items[Math.floor(Math.random() * items.length)];
+        const shoe = shoes.length > 0 ? shoes[Math.floor(Math.random() * shoes.length)] : items[Math.floor(Math.random() * items.length)];
+        
+        const outfit = [top, bottom, shoe].filter(Boolean);
+        const unique = Array.from(new Map(outfit.map(item => [item.id, item])).values());
+        setAiOutfitCards(unique.slice(0, 3));
+    };
+
+    useEffect(() => {
+        if (items.length > 0 && aiOutfitCards.length === 0) {
+            generateOutfit();
+        }
+    }, [items, aiOutfitCards.length]);
 
     return (
-        <div className="min-h-screen pt-24 pb-48 px-8 lg:px-20 relative overflow-x-hidden">
+        <div className="min-h-screen pt-24 pb-48 px-4 lg:px-12 relative overflow-x-hidden bg-[#FDFBF7] text-gray-900 cursor-default">
+            
+            {/* ── Custom Cursor ── */}
+            <motion.div 
+                className="fixed top-0 left-0 w-8 h-8 rounded-full border border-[#5a1e2a]/40 pointer-events-none z-[9999] hidden lg:flex items-center justify-center mix-blend-difference"
+                animate={{ x: mousePos.x - 16, y: mousePos.y - 16 }}
+                transition={{ type: "spring", stiffness: 700, damping: 30, mass: 0.5 }}
+            >
+                <div className="w-1.5 h-1.5 bg-[#5a1e2a] rounded-full" />
+            </motion.div>
 
-            {/* ── Animated Background ── */}
-            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#FDF9F4] via-[#FDFBF7] to-[#F7F3EE]" />
-                <motion.div
-                    animate={{ x: [0, 50, 0], y: [0, -40, 0] }}
-                    transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }}
-                    className="absolute -top-[25%] -left-[10%] w-[60%] h-[60%] rounded-full bg-indigo-100/25 blur-[180px]"
-                />
-                <motion.div
-                    animate={{ x: [0, -40, 0], y: [0, 40, 0] }}
-                    transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut', delay: 5 }}
-                    className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-amber-100/20 blur-[160px]"
-                />
-                <motion.div
-                    animate={{ x: [0, 30, 0], y: [0, -30, 0] }}
-                    transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut', delay: 10 }}
-                    className="absolute top-[40%] left-[30%] w-[30%] h-[35%] rounded-full bg-rose-100/15 blur-[140px]"
-                />
-                <div
-                    className="absolute inset-0 opacity-[0.03]"
-                    style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '44px 44px' }}
-                />
+            {/* ── Background Depth Layers ── */}
+            <div className="fixed inset-0 z-0 pointer-events-none">
+                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-rose-900/5 rounded-full blur-[140px]" />
+                <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-stone-300/30 rounded-full blur-[160px]" />
+                {/* Subtle Noise */}
+                <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }} />
             </div>
 
-            <div className="max-w-[1800px] mx-auto relative z-10">
-
+            <div className="max-w-[1700px] mx-auto relative z-10">
+                
                 {/* ── Header ── */}
-                <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-20 gap-10">
-                    <div className="flex-1">
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                            className="flex items-center gap-4 mb-6"
-                        >
-                            <span className="w-16 h-[1px] bg-black opacity-20" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.6em] text-gray-400">Dijital Gardırop Arşivi</span>
-                        </motion.div>
-
-                        <motion.h1
-                            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-                            className="text-[9rem] lg:text-[13rem] font-serif font-light leading-[0.82] tracking-tightest text-gray-900 whitespace-nowrap"
-                        >
-                            Gardırop<span className="italic font-normal text-gray-400">.</span>
-                        </motion.h1>
-
-                        {/* İstatistik şeridi */}
-                        <motion.div
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                            className="flex items-center gap-8 mt-8"
-                        >
-                            <div className="flex items-center gap-3">
-                                <span className="text-3xl font-serif font-light text-gray-900">{stats.total}</span>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">Parça</span>
-                            </div>
-                            <span className="w-px h-6 bg-gray-200" />
-                            <div className="flex items-center gap-3">
-                                <span className="text-3xl font-serif font-light text-gray-900">
-                                    {new Set(items.map(i => i.brand).filter(Boolean)).size}
-                                </span>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-300">Marka</span>
-                            </div>
-                            <span className="w-px h-6 bg-gray-200" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-300 italic font-serif">{stats.label}</span>
-                        </motion.div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-6">
-                        {/* Küçük kıyafet önizleme kolajı */}
-                        <div className="hidden lg:flex gap-3 mb-2">
-                            {[
-                                'https://images.unsplash.com/photo-ogmenj2NGho?w=160&q=70',
-                                'https://images.unsplash.com/photo-oB7lLU9dwLc?w=160&q=70',
-                                'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=160&q=70',
-                            ].map((src, i) => (
-                                <motion.div
-                                    key={i}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.2 + i * 0.1 }}
-                                    className="w-20 h-28 rounded-[2rem] overflow-hidden border-4 border-white shadow-elite"
-                                    style={{ rotate: [-4, 0, 4][i] + 'deg' }}
-                                >
-                                    <img src={src} alt="" className="w-full h-full object-cover" />
-                                </motion.div>
-                            ))}
-                        </div>
-
-                        <div className="flex gap-4">
-                            <button
-                                onClick={openMenu}
-                                className="w-16 h-16 bg-white border border-gray-100 rounded-[2rem] flex items-center justify-center shadow-elite hover:scale-110 transition-all group"
-                            >
-                                <Menu size={20} className="text-gray-900 group-hover:rotate-90 transition-transform duration-500" />
-                            </button>
-                            <button
-                                onClick={handleAdd}
-                                className="px-12 h-16 bg-black text-white rounded-[2rem] flex items-center justify-center gap-4 hover:bg-gray-900 transition-all font-serif italic text-xl group shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
-                            >
-                                <Plus size={20} className="group-hover:rotate-180 transition-transform duration-700" />
-                                Arşive Ekle
-                            </button>
-                        </div>
-                    </div>
-                </header>
-
-                {/* ── Stats Dashboard ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mb-32">
-
-                    {/* Sol: Koleksiyon dağılımı */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                        className="lg:col-span-1 bg-white/50 backdrop-blur-3xl rounded-[4rem] p-12 border border-white/70 shadow-elite flex flex-col justify-between h-[420px]"
-                    >
-                        <div className="flex justify-between items-center mb-10">
-                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-black/30">Koleksiyon Dağılımı</span>
-                            <TrendingUp size={18} className="text-gray-200" />
-                        </div>
-
-                        {stats.total === 0 ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
-                                <Package size={40} strokeWidth={1} className="text-gray-200" />
-                                <p className="text-gray-300 font-serif italic text-lg">Henüz kıyafet eklenmedi</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 gap-10">
-                                {stats.data.filter(s => s.count > 0).map((stat) => (
-                                    <div key={stat.name} className="group">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-black/20 mb-2">{stat.name}</p>
-                                        <p className="text-4xl font-serif leading-none">{stat.percentage}<span className="text-lg text-gray-300">%</span></p>
-                                        <div className="w-full h-[1px] bg-gray-100 mt-3 overflow-hidden">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${stat.percentage}%` }}
-                                                transition={{ duration: 1, delay: 0.3 }}
-                                                className="h-full bg-black"
-                                            />
-                                        </div>
-                                        <p className="text-[9px] text-gray-300 mt-1">{stat.count} parça</p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        <div className="mt-8 pt-8 border-t border-gray-100 flex justify-between items-end">
-                            <div>
-                                <p className="text-[9px] font-black text-black/20 uppercase tracking-[0.4em] mb-2">Toplam Parça</p>
-                                <p className="text-6xl font-serif font-light">{stats.total}</p>
-                            </div>
-                            <p className="text-stone-400 italic font-serif text-xl">{stats.label}</p>
-                        </div>
-                    </motion.div>
-
-                    {/* Sağ: AI Style Oracle */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="lg:col-span-2 bg-black text-white rounded-[4rem] p-12 shadow-[0_40px_80px_rgba(0,0,0,0.25)] relative overflow-hidden flex flex-col justify-between h-[420px]"
-                    >
-                        <div className="absolute top-0 right-0 w-[35rem] h-[35rem] bg-indigo-500/10 rounded-full blur-[100px] translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-                        <div className="absolute bottom-0 left-0 w-[18rem] h-[18rem] bg-amber-500/5 rounded-full blur-[80px] pointer-events-none" />
-
-                        <div className="relative z-10 h-full flex flex-col justify-between">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <span className="px-5 py-2 bg-white/10 rounded-full text-[9px] font-black tracking-[0.4em] uppercase border border-white/10">Style Oracle AI</span>
-                                    {editorial?.weather && (
-                                        <span className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-[9px] font-black tracking-widest uppercase text-white/50">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                            {editorial.weather.city} · {editorial.weather.condition} · {editorial.weather.temp}°C
-                                        </span>
-                                    )}
-                                </div>
-                                <button
-                                    onClick={fetchEditorial}
-                                    className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:rotate-180 duration-500 border border-white/10"
-                                    title="Yenile"
-                                >
-                                    <Sparkles size={16} className="text-amber-200/70" />
-                                </button>
-                            </div>
-
-                            <div className="max-w-3xl">
-                                <h4 className="text-5xl lg:text-6xl font-serif mb-6 leading-[1.1] italic font-light tracking-tight">
-                                    {editorial?.headline || 'Koleksiyonun analiz ediliyor...'}
-                                </h4>
-                                <p className="text-lg font-serif text-white/50 leading-relaxed italic max-w-2xl">
-                                    {editorial?.article || 'Stil kahinin saniyeler içinde senin için bir manifesto hazırlayacak.'}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-8 pt-8 border-t border-white/5">
-                                <div className="flex -space-x-3">
-                                    {(editorial?.suggestedItems?.length > 0
-                                        ? editorial.suggestedItems.slice(0, 3).map((it: any) => getImageUrl(it.imageUrl, it.category))
-                                        : [
-                                            'https://images.unsplash.com/photo-ogmenj2NGho?w=200&q=80',
-                                            'https://images.unsplash.com/photo-1542272604-787c3835535d?w=200&q=80',
-                                            'https://images.unsplash.com/photo-oB7lLU9dwLc?w=200&q=80',
-                                          ]
-                                    ).map((src: string, i: number) => (
-                                        <div key={i} className="w-14 h-14 rounded-full border-[3px] border-black/80 bg-stone-800 overflow-hidden shadow-xl" style={{ zIndex: 3 - i }}>
-                                            <img src={src} alt="" className="w-full h-full object-cover" />
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="flex flex-col gap-0.5">
-                                    <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em]">Günün Kombini</span>
-                                    <span className="text-xs font-serif italic text-white/40">Oracle tarafından hazırlandı</span>
-                                </div>
-                                <button
-                                    onClick={fetchEditorial}
-                                    className="ml-auto flex items-center gap-2 px-5 py-2.5 rounded-full border border-white/10 bg-white/5 hover:bg-white/15 transition-all text-[9px] font-black tracking-widest uppercase text-white/40 hover:text-white/70"
-                                >
-                                    <Sparkles size={10} />
-                                    Yenile
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
-                </div>
-
-                {/* ── Filtreler & Arama ── */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 mb-20 bg-white/40 backdrop-blur-xl p-5 rounded-[3rem] border border-white/60 shadow-elite">
-                    <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar px-2">
-                        {['Hepsi', ...CATEGORIES].map((cat) => (
-                            <button
-                                key={cat}
-                                onClick={() => setActiveCategory(cat)}
-                                className={`flex items-center gap-2 px-8 py-3.5 rounded-[1.6rem] text-[10px] font-black tracking-widest uppercase whitespace-nowrap transition-all duration-500 ${
-                                    activeCategory === cat
-                                        ? 'bg-black text-white shadow-xl'
-                                        : 'text-gray-400 hover:text-black'
-                                }`}
-                            >
-                                {cat}
-                                <span className={`text-[9px] font-mono ${activeCategory === cat ? 'text-white/50' : 'text-gray-300'}`}>
-                                    {categoryCount(cat)}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="relative group min-w-[360px] mr-4">
-                        <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-200 group-focus-within:text-black transition-colors" size={15} />
-                        <input
-                            type="text"
-                            placeholder="Arşivde ara..."
-                            className="w-full pl-9 pr-4 py-3 bg-transparent border-b border-gray-100 focus:border-black outline-none transition-all font-serif italic text-xl placeholder:text-gray-200"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                {/* ── Kıyafet Grid ── */}
-                {filteredItems.length === 0 && items.length === 0 ? (
-                    /* Boş gardırop durumu */
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.8 }}
-                        className="flex flex-col items-center justify-center py-40 text-center"
-                    >
-                        <div className="w-40 h-40 bg-white/60 backdrop-blur-xl rounded-[4rem] border border-white/80 shadow-elite flex items-center justify-center mb-12">
-                            <Package size={56} strokeWidth={0.8} className="text-gray-200" />
-                        </div>
-                        <h3 className="text-6xl font-serif font-light text-gray-900 mb-4">
-                            Arşiv <span className="italic text-gray-400">Boş.</span>
-                        </h3>
-                        <p className="text-gray-400 font-serif italic text-xl mb-16 max-w-sm leading-relaxed">
-                            İlk kıyafetini ekleyerek dijital gardırobunu oluşturmaya başla.
+                <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-16 gap-8">
+                    <motion.div initial={{ opacity: 0, y: 30, filter: 'blur(15px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.8, ease: "easeOut" }}>
+                        <h1 className="text-[48px] lg:text-[72px] font-serif font-light tracking-tight text-gray-900 leading-[0.9]">
+                            Gardırop<span className="text-[#5a1e2a] italic">.</span>
+                        </h1>
+                        <p className="text-sm lg:text-lg font-serif italic text-gray-500 mt-4 tracking-wide flex items-center gap-2">
+                            <Sparkles size={14} className="text-[#5a1e2a]" /> Your luxury AI-powered wardrobe
                         </p>
-                        <button
-                            onClick={handleAdd}
-                            className="px-16 py-6 bg-black text-white rounded-[2rem] font-serif italic text-2xl flex items-center gap-4 hover:bg-gray-900 transition-all shadow-[0_20px_60px_rgba(0,0,0,0.2)] group"
-                        >
-                            <Plus size={22} className="group-hover:rotate-180 transition-transform duration-700" />
-                            İlk Parçayı Ekle
+                    </motion.div>
+
+                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.2 }} className="flex items-center gap-4 lg:gap-6">
+                        <div className="hidden lg:flex items-center bg-white/60 backdrop-blur-xl border border-white/80 rounded-full p-1.5 shadow-sm hover:shadow-md transition-all group">
+                            <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#5a1e2a] transition-colors" size={16} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Koleksiyonda ara..." 
+                                    className="w-48 lg:w-72 pl-12 pr-4 py-2.5 bg-transparent text-sm outline-none font-serif italic placeholder:text-gray-400"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        
+                        <button onClick={() => setIsOutfitBuilderOpen(!isOutfitBuilderOpen)} className="hidden lg:flex items-center gap-2 px-8 py-3.5 bg-white/60 backdrop-blur-xl border border-white/80 hover:border-[#5a1e2a]/50 text-gray-800 rounded-full text-sm font-medium transition-all shadow-sm hover:shadow-lg group">
+                            <Wand2 size={16} className="text-[#5a1e2a] group-hover:rotate-12 transition-transform" />
+                            Stüdyo
+                        </button>
+
+                        <button onClick={handleAdd} className="px-8 py-3.5 bg-[#1a1a1a] text-white rounded-full flex items-center gap-3 hover:bg-[#5a1e2a] transition-all duration-500 shadow-xl hover:shadow-[0_10px_30px_rgba(90,30,42,0.3)] text-sm font-medium group">
+                            <Plus size={16} className="group-hover:rotate-90 transition-transform duration-500" />
+                            Yeni Parça
+                        </button>
+                        
+                        <button className="w-12 h-12 rounded-full bg-white/60 backdrop-blur-xl flex items-center justify-center border border-white/80 overflow-hidden shadow-sm hover:scale-105 transition-transform">
+                            <User size={18} className="text-[#5a1e2a]" />
                         </button>
                     </motion.div>
-                ) : filteredItems.length === 0 ? (
-                    /* Arama sonucu boş */
-                    <div className="flex flex-col items-center justify-center py-32 text-center">
-                        <p className="text-5xl font-serif italic text-gray-300 mb-4">Sonuç bulunamadı.</p>
-                        <p className="text-gray-400 font-serif text-lg">"{searchTerm}" için arşivde eşleşen parça yok.</p>
+                </header>
+
+                {/* ── Gamification & AI Dashboard ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 mb-20">
+                    
+                    {/* Left: Gamification & Stats */}
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                        className="lg:col-span-4 bg-white/50 backdrop-blur-2xl rounded-[2.5rem] p-8 lg:p-10 border border-white/60 shadow-[0_20px_40px_rgba(0,0,0,0.03)] flex flex-col justify-between"
+                    >
+                        <div>
+                            <div className="flex justify-between items-center mb-10">
+                                <h2 className="text-[22px] font-serif font-medium tracking-wide">Stil Profili</h2>
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 text-orange-600 rounded-full text-xs font-bold">
+                                    <Flame size={14} fill="currentColor" /> {dailyStreak} Gün Serisi
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-8">
+                                {/* Style Score */}
+                                <div>
+                                    <div className="flex justify-between items-end mb-3">
+                                        <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500">Stil Skoru</span>
+                                        <span className="text-2xl font-serif text-[#5a1e2a]">{styleScore}<span className="text-sm text-gray-400">/100</span></span>
+                                    </div>
+                                    <div className="w-full h-2 bg-gray-200/50 rounded-full overflow-hidden">
+                                        <motion.div initial={{ width: 0 }} animate={{ width: `${styleScore}%` }} transition={{ duration: 1.5, ease: "easeOut" }} className="h-full bg-gradient-to-r from-gray-800 to-[#5a1e2a]" />
+                                    </div>
+                                </div>
+
+                                {/* Style Dominance */}
+                                <div className="p-5 bg-stone-50/50 rounded-2xl border border-stone-100/50">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-sm font-serif italic text-gray-600">Baskın Aura</span>
+                                        <span className="text-sm font-bold text-gray-900">{stylePercentage}% {dominantStyle}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-10 pt-6">
+                                    <div>
+                                        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-400 mb-1">Koleksiyon</p>
+                                        <p className="text-4xl font-serif font-light">{stats.total} <span className="text-sm italic text-gray-400 font-serif">parça</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Right: Dynamic Hero AI Carousel */}
+                    <motion.div 
+                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                        className="lg:col-span-8 bg-[#0a0a0a] text-white rounded-[2.5rem] p-8 lg:p-12 shadow-[0_30px_60px_rgba(0,0,0,0.2)] relative overflow-hidden flex flex-col justify-between min-h-[400px] group cursor-pointer"
+                        onClick={() => setIsAIFullscreen(true)}
+                    >
+                        <AnimatePresence mode="wait">
+                            <motion.div 
+                                key={activeCity.city}
+                                initial={{ opacity: 0, scale: 1.1 }} 
+                                animate={{ opacity: 1, scale: 1 }} 
+                                exit={{ opacity: 0, scale: 0.9 }} 
+                                transition={{ duration: 1.5, ease: "easeInOut" }}
+                                className={`absolute inset-0 bg-gradient-to-br ${activeCity.color} opacity-50 mix-blend-screen`} 
+                            />
+                        </AnimatePresence>
+                        
+                        {/* Animated Mesh Blobs */}
+                        <motion.div 
+                            animate={{ x: [0, 50, 0], y: [0, -50, 0] }} 
+                            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                            className={`absolute -top-[20%] -left-[10%] w-[80%] h-[80%] bg-gradient-to-tr ${activeCity.color} rounded-full blur-[100px] opacity-40 mix-blend-screen pointer-events-none`}
+                        />
+                        <motion.div 
+                            animate={{ x: [0, -50, 0], y: [0, 50, 0] }} 
+                            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+                            className={`absolute -bottom-[20%] -right-[10%] w-[80%] h-[80%] bg-gradient-to-bl ${activeCity.color} rounded-full blur-[120px] opacity-40 mix-blend-screen pointer-events-none`}
+                        />
+                        
+                        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')] opacity-20 pointer-events-none mix-blend-overlay" />
+
+                        <div className="relative z-10 h-full flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-8">
+                                <span className="px-5 py-2 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-mono uppercase tracking-[0.3em] border border-white/10 flex items-center gap-2">
+                                    <Zap size={12} className={activeCity.accent} /> Style Oracle
+                                </span>
+                                <AnimatePresence mode="wait">
+                                    <motion.span key={activeCity.city} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="text-[12px] font-mono text-white/50 tracking-wider">
+                                        {activeCity.city} · {activeCity.temp}°C
+                                    </motion.span>
+                                </AnimatePresence>
+                            </div>
+
+                            <AnimatePresence mode="wait">
+                                <motion.div key={activeCity.city} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.6 }} className="max-w-2xl">
+                                    <h3 className="text-4xl lg:text-[56px] font-serif leading-[1.1] mb-6 tracking-tight text-white font-light">
+                                        {activeCity.style}
+                                    </h3>
+                                    <p className="text-lg text-white/60 font-serif italic max-w-xl leading-relaxed">
+                                        Şehrin aurası senin dolabınla birleştiğinde ortaya çıkacak muhteşem kombinleri görmek için dokun.
+                                    </p>
+                                </motion.div>
+                            </AnimatePresence>
+
+                            <div className="flex items-center justify-between mt-12">
+                                <button 
+                                    className="flex items-center gap-3 bg-white text-black hover:bg-gray-200 px-8 py-4 rounded-full text-sm font-bold transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:scale-105"
+                                    onClick={(e) => { e.stopPropagation(); setIsAIFullscreen(true); }}
+                                >
+                                    <Wand2 size={18} />
+                                    Bugün Ne Giysem?
+                                </button>
+                                
+                                <div className="flex gap-2">
+                                    {CITIES.map((c, i) => (
+                                        <div key={c.city} className={`w-2 h-2 rounded-full transition-all duration-500 ${i === cityIdx ? 'bg-white w-6' : 'bg-white/30'}`} />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+
+                {/* ── Filters ── */}
+                <div className="flex items-center gap-4 overflow-x-auto hide-scrollbar mb-10 pb-4">
+                    {CATEGORIES.map((cat) => (
+                        <button
+                            key={cat}
+                            onClick={() => setActiveCategory(cat)}
+                            className={`px-8 py-3.5 rounded-full text-[11px] font-mono uppercase tracking-[0.2em] whitespace-nowrap transition-all duration-500 ${
+                                activeCategory === cat
+                                    ? 'bg-[#1a1a1a] text-white shadow-xl scale-105'
+                                    : 'bg-white/50 backdrop-blur-sm border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-black'
+                            }`}
+                        >
+                            {cat} <span className="ml-2 opacity-40 font-sans">{categoryCount(cat)}</span>
+                        </button>
+                    ))}
+                </div>
+
+                {/* ── Asymmetric Grid ── */}
+                {filteredItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-40 text-center">
+                        <div className="w-32 h-32 bg-white/60 backdrop-blur-xl rounded-full shadow-sm flex items-center justify-center mb-8 border border-white/80">
+                            <Package size={40} className="text-gray-300" />
+                        </div>
+                        <h3 className="text-4xl font-serif text-gray-900 mb-4 font-light">Koleksiyon Boş</h3>
+                        <p className="text-gray-500 font-serif italic text-lg mb-10 max-w-md">
+                            Lüks gardırobunu oluşturmaya başlamak için ilk imza parçanı ekle.
+                        </p>
+                        <button onClick={handleAdd} className="px-10 py-4 bg-[#1a1a1a] text-white rounded-full font-medium hover:bg-[#5a1e2a] transition-all shadow-xl hover:shadow-2xl">
+                            Parça Ekle
+                        </button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10 lg:gap-16">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-10 auto-rows-[minmax(350px,auto)]">
                         <AnimatePresence mode="popLayout">
-                            {filteredItems.map((item, index) => (
-                                <motion.div
-                                    layout
-                                    key={item.id}
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.9 }}
-                                    transition={{ delay: index * 0.04, duration: 0.8 }}
-                                    className="group relative cursor-pointer"
-                                    onClick={() => setSelectedItem(item)}
-                                >
-                                    <div className="aspect-[3/4.2] rounded-[4rem] overflow-hidden bg-white shadow-elite relative border-[12px] border-white group-hover:shadow-[0_50px_100px_rgba(0,0,0,0.1)] group-hover:-translate-y-4 transition-all duration-700">
-                                        <img
-                                            src={getImageUrl(item.photos?.[0]?.url, item.category)}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[3s] ease-out"
-                                            alt={item.brand || 'Kıyafet'}
-                                        />
-                                        {/* Kategori badge */}
-                                        <div className="absolute top-6 left-6">
-                                            <span className="px-4 py-2 bg-white/80 backdrop-blur-xl rounded-full text-[9px] font-black uppercase tracking-[0.3em] text-black/50 group-hover:bg-black group-hover:text-white transition-all duration-500">
-                                                {item.meshUrl ? '3D' : item.category?.split(' ')[0] || 'Parça'}
-                                            </span>
-                                        </div>
-                                        {/* Sil butonu */}
-                                        <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                                                className="w-10 h-10 bg-white/90 text-red-400 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                        {/* Alt gradient */}
-                                        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                    </div>
+                            {filteredItems.map((item, index) => {
+                                // Dynamic grid layout (every 5th item is large)
+                                const isFeatured = index % 5 === 0;
+                                
+                                return (
+                                    <motion.div
+                                        layoutId={`card-${item.id}`}
+                                        key={item.id}
+                                        initial={{ opacity: 0, y: 80, rotateX: -20, scale: 0.9, z: -100 }}
+                                        animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1, z: 0 }}
+                                        exit={{ opacity: 0, scale: 0.9, rotateX: 10 }}
+                                        transition={{ delay: index * 0.1, duration: 0.8, type: "spring", stiffness: 100, damping: 20 }}
+                                        className={`group cursor-pointer flex flex-col ${isFeatured ? 'lg:col-span-2 lg:row-span-2' : 'col-span-1'} relative perspective-[1000px]`}
+                                        style={{ transformStyle: 'preserve-3d' }}
+                                        draggable
+                                        onDragStart={(e) => { e.dataTransfer.setData('item', JSON.stringify(item)); setIsOutfitBuilderOpen(true); }}
+                                        onClick={() => setSelectedItem(item)}
+                                    >
+                                        <div className={`w-full ${isFeatured ? 'h-[400px] lg:h-[calc(100%-4rem)]' : 'aspect-[3/4]'} rounded-[2rem] overflow-hidden bg-stone-100 relative shadow-sm group-hover:shadow-[0_30px_60px_rgba(0,0,0,0.12)] transition-all duration-700 ease-out border border-white/50`}>
+                                            <motion.img
+                                                layoutId={`image-${item.id}`}
+                                                src={getImageUrl(item.photos?.[0]?.url, item.category)}
+                                                onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=400'; }}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2s] ease-out"
+                                                alt={item.brand}
+                                            />
+                                            
+                                            {/* X-Ray Style DNA Frosted Glass Overlay */}
+                                            <div className="absolute inset-0 bg-black/50 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-500 z-10 flex items-center justify-center overflow-hidden">
+                                                {/* Scanline Animation */}
+                                                <motion.div 
+                                                    className="absolute inset-x-0 h-[1px] bg-[#E5C158] shadow-[0_0_20px_2px_#E5C158] opacity-0 group-hover:opacity-100"
+                                                    initial={{ top: "-10%" }}
+                                                    whileHover={{ top: "110%" }}
+                                                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                                                />
+                                                <div className="p-6 text-center transform translate-y-8 group-hover:translate-y-0 transition-all duration-700 delay-75">
+                                                    <p className="text-[#E5C158] text-[10px] font-mono uppercase tracking-[0.4em] mb-6 flex items-center justify-center gap-2">
+                                                        <Wand2 size={12} /> Stil DNA
+                                                    </p>
+                                                    <div className="space-y-5 font-mono text-[11px] text-white/90 uppercase tracking-widest flex flex-col items-center">
+                                                        <div className="flex items-center gap-3"><Package size={14} className="text-[#E5C158]" /> Doku: {item.fabric || 'İpek/Keten'}</div>
+                                                        <div className="flex items-center gap-3"><Zap size={14} className="text-[#E5C158]" /> Uyum: %94</div>
+                                                        <div className="flex items-center gap-3"><Flame size={14} className="text-[#E5C158]" /> Aura: {item.category || 'Premium'}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                    <div className="mt-8 px-2">
-                                        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-300 block mb-2">{item.category}</span>
-                                        <h3 className="text-3xl font-serif text-gray-900 tracking-tight leading-none group-hover:italic transition-all duration-500">
-                                            {item.brand || 'Kıyafet'}
-                                        </h3>
-                                        <p className="mt-2 text-sm text-gray-300 font-serif italic opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-1 group-hover:translate-y-0">
-                                            Arşiv Parçası
-                                        </p>
-                                    </div>
-                                </motion.div>
-                            ))}
+                                            {/* Micro-interactions Overlay */}
+                                            <div className="absolute right-4 top-4 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0 z-30">
+                                                <button onClick={(e) => toggleFavorite(e, item.id)} className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white text-gray-700 shadow-lg transition-transform hover:scale-110 active:scale-95">
+                                                    <Heart size={18} className={favorites.has(item.id) ? 'fill-[#5a1e2a] text-[#5a1e2a]' : ''} />
+                                                </button>
+                                                <button onClick={(e) => addToOutfit(e, item)} className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white text-gray-700 shadow-lg transition-transform hover:scale-110 active:scale-95">
+                                                    <PlusCircle size={18} />
+                                                </button>
+                                            </div>
+
+                                            {/* Luxury Bottom Gradient */}
+                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-700 flex flex-col justify-end p-6 lg:p-8 z-20 pointer-events-none">
+                                                <p className="text-white/80 text-[10px] font-mono uppercase tracking-[0.3em] mb-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100">{item.category}</p>
+                                                <h3 className="text-white font-serif text-2xl lg:text-3xl leading-none transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-150">{item.brand || 'Premium Parça'}</h3>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="mt-5 px-2 flex justify-between items-start">
+                                            <div>
+                                                <h3 className="text-base font-medium text-gray-900 leading-tight">{item.brand || 'İsimsiz Parça'}</h3>
+                                                <p className="text-[12px] text-gray-400 mt-1.5 font-mono uppercase tracking-widest">{item.category}</p>
+                                            </div>
+                                            {isFeatured && <span className="px-3 py-1 bg-black text-white text-[10px] font-mono uppercase tracking-widest rounded-full">Featured</span>}
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
                         </AnimatePresence>
-
-                        {/* Ekle kartı */}
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            onClick={handleAdd}
-                            className="aspect-[3/4.2] rounded-[4rem] border-2 border-dashed border-stone-200 flex flex-col items-center justify-center group hover:bg-white/50 hover:border-stone-300 transition-all duration-500"
-                        >
-                            <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all duration-700 shadow-sm mb-8">
-                                <Plus size={32} strokeWidth={1.5} />
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-stone-300 group-hover:text-black transition-colors">Ekle</span>
-                        </motion.button>
                     </div>
                 )}
             </div>
+
+            {/* ── Apple-Style Fullscreen Item Detail Expansion ── */}
+            {createPortal(
+                <AnimatePresence>
+                    {selectedItem && (
+                        <motion.div 
+                            className="fixed inset-0 z-[9999] flex items-center justify-center p-0 lg:p-12 overflow-hidden"
+                        >
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}
+                            className="absolute inset-0 bg-white/70 backdrop-blur-2xl"
+                            onClick={() => setSelectedItem(null)}
+                        />
+                        <motion.div 
+                            layoutId={`card-${selectedItem.id}`}
+                            className="relative w-full h-full lg:max-w-7xl lg:max-h-[85vh] bg-[#FDFBF7] lg:rounded-[3rem] shadow-2xl overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row z-10"
+                        >
+                            {/* Left: Huge Image */}
+                            <div className="w-full h-[60vh] lg:w-1/2 lg:h-full relative">
+                                <motion.img 
+                                    layoutId={`image-${selectedItem.id}`}
+                                    src={getImageUrl(selectedItem.photos?.[0]?.url, selectedItem.category)}
+                                    onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=400'; }}
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#FDFBF7] lg:bg-none to-transparent lg:hidden" />
+                            </div>
+                            
+                            {/* Right: AI Analysis & Details */}
+                            <motion.div 
+                                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.6 }}
+                                className="w-full lg:w-1/2 p-8 lg:p-16 flex flex-col relative bg-[#FDFBF7]"
+                            >
+                                <button onClick={() => setSelectedItem(null)} className="absolute top-6 right-6 lg:top-10 lg:right-10 w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 hover:rotate-90 transition-all z-20">
+                                    <X size={20} />
+                                </button>
+
+                                <div className="mt-4 lg:mt-10 flex-1 overflow-y-auto hide-scrollbar pr-4">
+                                    <p className="text-gray-400 uppercase tracking-[0.3em] text-[11px] font-mono mb-4">{selectedItem.category}</p>
+                                    <h2 className="text-5xl lg:text-7xl font-serif mb-12 tracking-tight text-gray-900 leading-none">{selectedItem.brand || 'İmza Parça'}</h2>
+                                    
+                                    <div className="space-y-12">
+                                        {/* AI Analysis Block */}
+                                        <div className="p-8 bg-white rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
+                                            <div className="absolute top-0 left-0 w-1 h-full bg-[#5a1e2a]" />
+                                            <h4 className="text-[11px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#5a1e2a]">
+                                                <Sparkles size={14} /> Style Oracle Analizi
+                                            </h4>
+                                            <p className="text-gray-600 leading-relaxed font-serif text-lg italic">
+                                                "Bu parça senin %{stylePercentage} oranındaki {dominantStyle} auranla kusursuz bir frekans yakalıyor. 
+                                                Kumaş dokusu ve kalıbı, gardırobundaki diğer {Math.max(1, items.length - 1)} parçayla kolayca entegre olarak premium bir duruş sergiliyor."
+                                            </p>
+                                            <div className="mt-6 flex items-center gap-4">
+                                                <span className="px-4 py-1.5 bg-[#5a1e2a]/10 text-[#5a1e2a] rounded-full text-[10px] font-mono uppercase tracking-widest font-bold">
+                                                    %94 Uyum Skoru
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Actions */}
+                                        <div className="pt-8 border-t border-gray-200">
+                                            <h4 className="text-[11px] font-bold uppercase tracking-widest mb-6 flex items-center gap-2 text-gray-500">
+                                                <ShoppingBag size={14}/> Shop The Look & Actions
+                                            </h4>
+                                            <div className="flex flex-wrap gap-4">
+                                                <button className="px-8 py-4 bg-[#1a1a1a] text-white rounded-full text-sm font-medium hover:bg-[#5a1e2a] transition-all shadow-lg hover:shadow-xl">
+                                                    Kombine Ekle
+                                                </button>
+                                                <button className="px-8 py-4 bg-white border border-gray-200 text-gray-900 rounded-full text-sm font-medium hover:border-gray-900 transition-all">
+                                                    Benzerlerini Bul
+                                                </button>
+                                                <button onClick={() => handleDelete(selectedItem.id)} className="w-14 h-14 border border-gray-200 text-red-500 rounded-full flex items-center justify-center hover:bg-red-50 transition-all ml-auto">
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>,
+            document.body
+        )}
+
+            {/* ── WOW MOMENT: Fullscreen AI Experience ── */}
+            {createPortal(
+                <AnimatePresence>
+                    {isAIFullscreen && (
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+                            className="fixed inset-0 z-[99999] flex flex-col bg-[#050505] overflow-y-auto hide-scrollbar"
+                        >
+                            {/* Cinematic Backgrounds */}
+                            <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.85%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')] opacity-[0.05] pointer-events-none fixed" />
+                            <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="fixed -top-[20%] -left-[10%] w-[1000px] h-[1000px] bg-[#5a1e2a]/40 rounded-full blur-[200px] pointer-events-none" />
+                            <motion.div animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.3, 0.1] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }} className="fixed -bottom-[20%] -right-[10%] w-[800px] h-[800px] bg-amber-900/30 rounded-full blur-[150px] pointer-events-none" />
+                            
+                            <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-[1600px] mx-auto px-6 py-20">
+                            
+                            <motion.button 
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }}
+                                onClick={() => setIsAIFullscreen(false)}
+                                className="absolute top-10 right-10 w-14 h-14 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-white/20 transition-all border border-white/10 z-50"
+                            >
+                                <X size={24} />
+                            </motion.button>
+
+                            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5, duration: 1.2, ease: "easeOut" }} className="text-center w-full">
+                                <Sparkles size={40} className="text-amber-200/80 mx-auto mb-10 animate-pulse" />
+                                <h2 className="text-5xl md:text-7xl lg:text-[100px] font-serif text-white mb-8 italic tracking-tight font-light leading-none">
+                                    Senin İçin <br/>Tasarlandı.
+                                </h2>
+                                <p className="text-xl lg:text-3xl text-white/60 font-serif mb-20 max-w-3xl mx-auto leading-relaxed font-light">
+                                    Bugün {activeCity.city} havası var. {activeCity.style} tarzını yansıtacak, özgüvenini artıracak kusursuz bir seçki hazırladım.
+                                </p>
+                            </motion.div>
+                            
+                            {aiOutfitCards.length > 0 && (
+                                <motion.div 
+                                    initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 1.2, duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+                                    className="flex flex-wrap justify-center items-center gap-6 lg:gap-10 w-full"
+                                >
+                                    {aiOutfitCards.map((it: any, i: number) => (
+                                        <motion.div 
+                                            key={i} 
+                                            whileHover={{ y: -20, scale: 1.05 }} 
+                                            className={`w-40 h-56 md:w-56 md:h-80 lg:w-72 lg:h-[400px] bg-white/5 backdrop-blur-2xl rounded-[2rem] border border-white/20 p-2 lg:p-3 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden group ${i === 1 ? 'lg:-translate-y-12' : ''}`}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10 opacity-60 group-hover:opacity-100 transition-all duration-700" />
+                                            <img src={getImageUrl(it.photos?.[0]?.url, it.category)} onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=400'; }} className="w-full h-full object-cover rounded-[1.5rem] grayscale-[0.5] group-hover:grayscale-0 transition-all duration-1000" alt="ai-pick" />
+                                            <div className="absolute bottom-6 inset-x-6 z-20 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500">
+                                                <span className="text-[10px] text-amber-200/80 font-mono tracking-[0.3em] uppercase block mb-1">Eşleşme: %9{8-i}</span>
+                                                <h4 className="text-white font-serif text-xl lg:text-2xl">{it.brand || 'Seçim'}</h4>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                                </motion.div>
+                            )}
+
+                            {/* AI Reasoning & Action Bar */}
+                            <motion.div 
+                                initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2, duration: 1 }}
+                                className="mt-16 w-full max-w-4xl mx-auto flex flex-col items-center"
+                            >
+                                {/* AI Reasoning Block */}
+                                <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-6 lg:p-8 rounded-[2rem] mb-10 flex flex-col md:flex-row items-start gap-6 shadow-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-amber-200 to-amber-600" />
+                                    <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 border border-amber-500/30">
+                                        <Sparkles size={20} className="text-amber-200" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-white font-serif text-xl mb-3 flex items-center gap-3">
+                                            Style Oracle Kararı
+                                            <span className="px-3 py-1 bg-amber-500/20 text-amber-200 rounded-full text-[10px] font-mono tracking-widest uppercase">Güven Oranı: %98</span>
+                                        </h4>
+                                        <p className="text-white/70 font-serif italic text-base lg:text-lg leading-relaxed">
+                                            "Dolabını analiz ettim. Özellikle seçtiğim {aiOutfitCards[0]?.category || 'bu'} ve {aiOutfitCards[1]?.category || 'diğer'} parça kombini, {activeCity.style} aurasının dinamiklerini kusursuz taşıyor. Bu seçim, tüm gün sürecek premium ve zahmetsiz bir silüet oluşturacak."
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Purposeful Actions */}
+                                <div className="flex flex-wrap items-center justify-center gap-4 lg:gap-6">
+                                    <button 
+                                        onClick={() => { 
+                                            showToast('Bugün bu kombini giyiyorsun! Gardırop Streak +1 🔥'); 
+                                            setIsAIFullscreen(false); 
+                                        }}
+                                        className="px-8 py-4 lg:px-10 lg:py-5 bg-white text-black rounded-full font-serif italic text-lg lg:text-xl hover:scale-105 hover:bg-amber-50 hover:shadow-[0_0_40px_rgba(251,191,36,0.3)] transition-all flex items-center gap-3"
+                                        title="Kombini giyildi olarak işaretle ve günlük serini artır."
+                                    >
+                                        <Flame size={20} className="text-orange-500" /> Bugün Bunu Giyeceğim
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            setOutfitItems(aiOutfitCards);
+                                            setIsAIFullscreen(false);
+                                            setIsOutfitBuilderOpen(true);
+                                            showToast('Kombin Stüdyoya Aktarıldı!');
+                                        }}
+                                        className="px-6 py-4 lg:px-8 lg:py-5 bg-white/5 border border-white/20 text-white rounded-full font-serif italic text-lg hover:bg-white/10 transition-all flex items-center gap-3"
+                                        title="Bu kombini daha sonra düzenlemek için Stüdyo'ya kaydet."
+                                    >
+                                        <Bookmark size={20} /> Stüdyoya Kaydet
+                                    </button>
+
+                                    <button 
+                                        onClick={() => {
+                                            generateOutfit();
+                                            showToast('Alternatif kombin hesaplandı.');
+                                        }}
+                                        className="w-14 h-14 lg:w-16 lg:h-16 rounded-full border border-white/20 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 active:rotate-180 transition-all duration-500 shadow-lg"
+                                        title="Sana yeni bir kombin önerisi sunar."
+                                    >
+                                        <RefreshCw size={22} />
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>,
+            document.body
+        )}
+
+            {/* ── Outfit Builder Drawer (Studio) ── */}
+            {createPortal(
+                <AnimatePresence>
+                {isOutfitBuilderOpen && (
+                    <motion.div 
+                        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 200 }}
+                        className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-3xl border-t border-white shadow-[0_-30px_60px_rgba(0,0,0,0.05)] z-40 p-6 lg:p-8"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            const itemData = e.dataTransfer.getData('item');
+                            if(itemData) {
+                                const item = JSON.parse(itemData);
+                                if (!outfitItems.find(i => i.id === item.id)) setOutfitItems([...outfitItems, item]);
+                            }
+                        }}
+                    >
+                        <div className="max-w-[1700px] mx-auto flex flex-col">
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 className="text-2xl font-serif font-medium flex items-center gap-3">
+                                        <Wand2 size={24} className="text-[#5a1e2a]" /> Kombin Stüdyosu
+                                    </h3>
+                                    <p className="text-gray-500 font-serif italic text-sm mt-1">Parçaları sürükle ve kendi imza görünümünü yarat.</p>
+                                </div>
+                                <button onClick={() => setIsOutfitBuilderOpen(false)} className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
+                                    <X size={20} className="text-gray-600" />
+                                </button>
+                            </div>
+                            
+                            <div className="flex items-center gap-6 overflow-x-auto hide-scrollbar min-h-[160px] p-4 bg-stone-50/50 rounded-3xl border border-dashed border-gray-300">
+                                {outfitItems.length === 0 ? (
+                                    <div className="w-full text-center text-gray-400 font-serif italic text-lg">
+                                        Seçimlerini bekliyor...
+                                    </div>
+                                ) : (
+                                    <AnimatePresence>
+                                        {outfitItems.map((item, idx) => (
+                                            <motion.div key={item.id} layout initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0, width: 0 }} transition={{ type: 'spring' }} className="relative w-28 h-40 shrink-0 rounded-2xl overflow-hidden border border-white shadow-lg group">
+                                                <img src={getImageUrl(item.photos?.[0]?.url, item.category)} className="w-full h-full object-cover" alt="" />
+                                                <button onClick={() => removeFromOutfit(item.id)} className="absolute top-2 right-2 w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 shadow-sm hover:bg-red-50 hover:text-red-500 transition-all">
+                                                    <X size={14} />
+                                                </button>
+                                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                                                    <span className="text-white text-[9px] font-mono uppercase tracking-widest">{item.category}</span>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
+                                )}
+                            </div>
+                            
+                            {outfitItems.length > 0 && (
+                                <div className="mt-6 flex justify-end">
+                                    <button className="px-8 py-3.5 bg-[#1a1a1a] text-white rounded-full text-sm font-medium hover:bg-[#5a1e2a] transition-all shadow-xl hover:shadow-[0_10px_30px_rgba(90,30,42,0.3)]">
+                                        Görünümü Kaydet
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>,
+            document.body
+        )}
 
             <AddItemModal
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
                 onSuccess={() => fetchItems()}
-                editItem={editingItem}
+                editItem={null}
             />
-            {selectedItem && (
-                <GarmentDetailModal
-                    item={selectedItem}
-                    onClose={() => setSelectedItem(null)}
-                    onDelete={handleDelete}
-                    onEdit={handleEdit}
-                />
-            )}
 
             <style>{`
-                .shadow-elite { box-shadow: 0 10px 40px rgba(0,0,0,0.02); }
                 .hide-scrollbar::-webkit-scrollbar { display: none; }
-                .tracking-tightest { letter-spacing: -0.06em; }
             `}</style>
         </div>
     );
