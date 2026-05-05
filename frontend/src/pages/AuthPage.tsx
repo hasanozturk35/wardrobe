@@ -54,7 +54,7 @@ const AuthPage: React.FC = () => {
                 const response = await api.post(endpoint, formData);
                 const { accessToken, user } = response.data;
                 setAuth(accessToken, user);
-                navigate('/wardrobe');
+                window.location.replace('/wardrobe');
             }
         } catch (err: any) {
             let msg = 'Bir hata oluştu. Lütfen tekrar deneyin.';

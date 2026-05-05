@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Plus, Search, Trash2, Heart, Bookmark, RefreshCw,
     Sparkles, TrendingUp, Menu, Package, PlusCircle, User, X,
-    Wand2, ShoppingBag, Flame, Zap
+    Wand2, ShoppingBag, Flame, Zap, Shirt, Loader2
 } from 'lucide-react';
 import { useWardrobeStore } from '../store/wardrobeStore';
 import { useUIStore } from '../store/uiStore';
-import { getImageUrl } from '../config';
+import { getImageUrl, API_URL } from '../config';
 import { AddItemModal } from '../components/wardrobe/AddItemModal';
 
 const CATEGORIES = ['Hepsi', 'Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'];
@@ -21,80 +21,15 @@ const CITIES = [
 ];
 
 const WardrobePage: React.FC = () => {
-    const { fetchItems, deleteItem } = useWardrobeStore();
-    
-    // MOCK VERİ: Kendi yatağında/halısında çekilmiş hissiyatı veren amatör ama lüks estetik kıyafetler
-    const items = [
-        {
-            id: 'demo-1',
-            category: 'Üst Giyim',
-            brand: 'Siyah Oversize Tişört',
-            fabric: '%100 Pamuk',
-            photos: [{ url: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80' }]
-        },
-        {
-            id: 'demo-2',
-            category: 'Alt Giyim',
-            brand: 'Vintage Blue Jean',
-            fabric: 'Kalın Denim',
-            photos: [{ url: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&q=80' }]
-        },
-        {
-            id: 'demo-3',
-            category: 'Ayakkabı',
-            brand: 'Vans Old Skool',
-            fabric: 'Süet / Kanvas',
-            photos: [{ url: 'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&q=80' }]
-        },
-        {
-            id: 'demo-4',
-            category: 'Dış Giyim',
-            brand: 'Retro Denim Ceket',
-            fabric: 'Denim',
-            photos: [{ url: 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=800&q=80' }]
-        },
-        {
-            id: 'demo-5',
-            category: 'Üst Giyim',
-            brand: 'Krem Triko Kazak',
-            fabric: 'Yün Karışım',
-            photos: [{ url: 'https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=800&q=80' }]
-        },
-        {
-            id: 'demo-6',
-            category: 'Ayakkabı',
-            brand: 'Beyaz Sneaker',
-            fabric: 'Deri',
-            photos: [{ url: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&q=80' }]
-        },
-        {
-            id: 'demo-7',
-            category: 'Üst Giyim',
-            brand: 'Oduncu Gömlek',
-            fabric: 'Pazen',
-            photos: [{ url: 'https://images.unsplash.com/photo-1604085449557-0b0c4ebafbe9?w=800&q=80' }]
-        },
-        {
-            id: 'demo-8',
-            category: 'Alt Giyim',
-            brand: 'Siyah Kumaş Pantolon',
-            fabric: 'Keten',
-            photos: [{ url: 'https://images.unsplash.com/photo-1604176354204-9268737828e4?w=800&q=80' }]
-        },
-        {
-            id: 'demo-9',
-            category: 'Aksesuar',
-            brand: 'Hardal Bere',
-            fabric: 'Yün',
-            photos: [{ url: 'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=800&q=80' }]
-        }
-    ];
+    const { fetchItems, deleteItem, items } = useWardrobeStore();
+
     const { openMenu, showToast } = useUIStore();
     const [searchTerm, setSearchTerm]         = useState('');
     const [activeCategory, setActiveCategory] = useState('Hepsi');
     
     const [selectedItem, setSelectedItem]     = useState<any>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [userGender, setUserGender]         = useState<'Erkek' | 'Kadın'>('Erkek');
     
     // Luxury UX states
     const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -141,10 +76,11 @@ const WardrobePage: React.FC = () => {
     });
 
     const handleAdd = () => setIsAddModalOpen(true);
-    const handleDelete = async (id: string) => { 
-        await deleteItem(id); 
-        setSelectedItem(null); 
-        showToast('Parça arşivden çıkarıldı.'); 
+    const handleDelete = async (id: string) => {
+        await deleteItem(id);
+        setSelectedItem(null);
+        setTryOnResult(null);
+        showToast('Parça arşivden çıkarıldı.');
     };
 
     const toggleFavorite = (e: React.MouseEvent, id: string) => {
@@ -177,22 +113,99 @@ const WardrobePage: React.FC = () => {
 
     const activeCity = CITIES[cityIdx];
 
+    // Virtual Try-On
+    const [tryOnLoading, setTryOnLoading] = useState(false);
+    const [tryOnResult, setTryOnResult] = useState<{ imageUrl: string | null; error?: string; mock?: boolean; model?: string } | null>(null);
+    const [selfieDataUrl, setSelfieDataUrl] = useState<string | null>(null);
+    const [tryOnFullscreen, setTryOnFullscreen] = useState(false);
+    const [tryOnStep, setTryOnStep] = useState(0);
+    const selfieInputRef = useRef<HTMLInputElement>(null);
+
+    const handleSelfieChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => setSelfieDataUrl(ev.target?.result as string);
+        reader.readAsDataURL(file);
+    };
+
+    const handleTryOn = async (item: any) => {
+        if (!selfieDataUrl) { showToast('Önce bir fotoğraf seç!'); return; }
+        const garmentImageUrl = item.photos?.[0]?.url
+            ? getImageUrl(item.photos[0].url, item.category)
+            : null;
+        if (!garmentImageUrl) { showToast('Bu kıyafetin fotoğrafı bulunamadı.'); return; }
+
+        setTryOnLoading(true);
+        setTryOnResult(null);
+        setTryOnStep(0);
+
+        const stepInterval = setInterval(() => {
+            setTryOnStep(s => s < 3 ? s + 1 : s);
+        }, 8000);
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/ai/try-on`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    personImageUrl: selfieDataUrl,
+                    garmentImageUrl,
+                    category: item.category,
+                    brand: item.brand || undefined,
+                })
+            });
+            const data = await res.json();
+            setTryOnResult(data);
+            if (data.imageUrl) setTryOnFullscreen(true);
+        } catch {
+            showToast('Try-On başarısız oldu.');
+        } finally {
+            clearInterval(stepInterval);
+            setTryOnLoading(false);
+        }
+    };
+
     // AI Outfit Logic
     const [aiOutfitCards, setAiOutfitCards] = useState<any[]>([]);
+    const [aiExplanation, setAiExplanation] = useState<string>('');
     
     const generateOutfit = () => {
         if (items.length === 0) return;
-        const tops = items.filter(i => i.category === 'Üst Giyim');
-        const bottoms = items.filter(i => i.category === 'Alt Giyim');
-        const shoes = items.filter(i => i.category === 'Ayakkabı' || i.category === 'Dış Giyim' || i.category === 'Aksesuar');
         
-        const top = tops.length > 0 ? tops[Math.floor(Math.random() * tops.length)] : items[Math.floor(Math.random() * items.length)];
-        const bottom = bottoms.length > 0 ? bottoms[Math.floor(Math.random() * bottoms.length)] : items[Math.floor(Math.random() * items.length)];
-        const shoe = shoes.length > 0 ? shoes[Math.floor(Math.random() * shoes.length)] : items[Math.floor(Math.random() * items.length)];
+        // Show skeleton/loading state
+        setAiOutfitCards([]);
+        setAiExplanation("AI Stilist dolabını analiz ediyor ve sana özel bir kombin seçiyor...");
         
-        const outfit = [top, bottom, shoe].filter(Boolean);
-        const unique = Array.from(new Map(outfit.map(item => [item.id, item])).values());
-        setAiOutfitCards(unique.slice(0, 3));
+        const token = localStorage.getItem('token');
+        fetch(`${API_URL}/ai/generate-outfit-from-list`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ items, city: activeCity.city, style: activeCity.style, gender: userGender })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if(data.outfitIds) {
+                const selected = data.outfitIds.map((id: string) => items.find(i => i.id === id)).filter(Boolean);
+                setAiOutfitCards(selected);
+            }
+            if(data.explanation) setAiExplanation(data.explanation);
+        })
+        .catch(err => {
+            // Fallback if AI server fails
+            const tops = items.filter(i => i.category === 'Üst Giyim');
+            const bottoms = items.filter(i => i.category === 'Alt Giyim');
+            const shoes = items.filter(i => i.category === 'Ayakkabı' || i.category === 'Dış Giyim' || i.category === 'Aksesuar');
+            const top = tops.length > 0 ? tops[Math.floor(Math.random() * tops.length)] : items[Math.floor(Math.random() * items.length)];
+            const bottom = bottoms.length > 0 ? bottoms[Math.floor(Math.random() * bottoms.length)] : items[Math.floor(Math.random() * items.length)];
+            const shoe = shoes.length > 0 ? shoes[Math.floor(Math.random() * shoes.length)] : items[Math.floor(Math.random() * items.length)];
+            
+            const outfit = [top, bottom, shoe].filter(Boolean);
+            const unique = Array.from(new Map(outfit.map(item => [item.id, item])).values());
+            setAiOutfitCards(unique.slice(0, 3));
+            setAiExplanation(`Dolabını analiz ettim. Özellikle seçtiğim bu kombin, ${activeCity.style} aurasının dinamiklerini kusursuz taşıyor.`);
+        });
     };
 
     useEffect(() => {
@@ -365,13 +378,23 @@ const WardrobePage: React.FC = () => {
                             </AnimatePresence>
 
                             <div className="flex items-center justify-between mt-12">
-                                <button 
-                                    className="flex items-center gap-3 bg-white text-black hover:bg-gray-200 px-8 py-4 rounded-full text-sm font-bold transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:scale-105"
-                                    onClick={(e) => { e.stopPropagation(); setIsAIFullscreen(true); }}
-                                >
-                                    <Wand2 size={18} />
-                                    Bugün Ne Giysem?
-                                </button>
+                                <div className="flex items-center gap-4">
+                                    <button 
+                                        className="flex items-center gap-3 bg-white text-black hover:bg-gray-200 px-8 py-4 rounded-full text-sm font-bold transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:scale-105"
+                                        onClick={(e) => { e.stopPropagation(); setIsAIFullscreen(true); }}
+                                    >
+                                        <Wand2 size={18} />
+                                        Bugün Ne Giysem?
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setUserGender(userGender === 'Erkek' ? 'Kadın' : 'Erkek'); }}
+                                        className="px-5 py-4 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full text-[11px] font-mono uppercase tracking-widest hover:bg-white/20 transition-all flex items-center gap-2"
+                                        title="Kombin cinsiyetini değiştir"
+                                    >
+                                        <User size={14} /> {userGender}
+                                    </button>
+                                </div>
                                 
                                 <div className="flex gap-2">
                                     {CITIES.map((c, i) => (
@@ -432,7 +455,7 @@ const WardrobePage: React.FC = () => {
                                         className={`group cursor-pointer flex flex-col ${isFeatured ? 'lg:col-span-2 lg:row-span-2' : 'col-span-1'} relative perspective-[1000px]`}
                                         style={{ transformStyle: 'preserve-3d' }}
                                         draggable
-                                        onDragStart={(e) => { e.dataTransfer.setData('item', JSON.stringify(item)); setIsOutfitBuilderOpen(true); }}
+                                        onDragStart={(e: any) => { e.dataTransfer.setData('item', JSON.stringify(item)); setIsOutfitBuilderOpen(true); }}
                                         onClick={() => setSelectedItem(item)}
                                     >
                                         <div className={`w-full ${isFeatured ? 'h-[400px] lg:h-[calc(100%-4rem)]' : 'aspect-[3/4]'} rounded-[2rem] overflow-hidden bg-stone-100 relative shadow-sm group-hover:shadow-[0_30px_60px_rgba(0,0,0,0.12)] transition-all duration-700 ease-out border border-white/50`}>
@@ -555,18 +578,96 @@ const WardrobePage: React.FC = () => {
                                             </div>
                                         </div>
                                         
+                                        {/* Virtual Try-On */}
+                                        <div className="pt-8 border-t border-gray-200">
+                                            <h4 className="text-[11px] font-bold uppercase tracking-widest mb-5 flex items-center gap-2 text-[#5a1e2a]">
+                                                <Shirt size={14}/> AI Virtual Try-On
+                                            </h4>
+
+                                            {/* Step 1: Selfie */}
+                                            <div className="flex gap-4 mb-5">
+                                                <div
+                                                    onClick={() => selfieInputRef.current?.click()}
+                                                    className="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-[#5a1e2a] hover:bg-[#5a1e2a]/5 transition-all shrink-0 overflow-hidden"
+                                                >
+                                                    {selfieDataUrl ? (
+                                                        <img src={selfieDataUrl} className="w-full h-full object-cover" alt="selfie" />
+                                                    ) : (
+                                                        <>
+                                                            <User size={22} className="text-gray-300 mb-1" />
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-300 text-center leading-tight">Fotoğraf<br/>Seç</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <input ref={selfieInputRef} type="file" accept="image/*" className="hidden" onChange={handleSelfieChange} />
+
+                                                <div className="flex-1 flex flex-col justify-center gap-2">
+                                                    <p className="text-[11px] font-bold text-gray-700">Kendi fotoğrafını yükle</p>
+                                                    <p className="text-[10px] text-gray-400 leading-relaxed">
+                                                        Tam vücut veya üst beden fotoğrafın en iyi sonucu verir. Sade arka plan tercih edilir.
+                                                    </p>
+                                                    {selfieDataUrl && (
+                                                        <button onClick={() => setSelfieDataUrl(null)} className="text-[9px] text-red-400 font-bold uppercase tracking-widest text-left">
+                                                            × Kaldır
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Generate button */}
+                                            <button
+                                                onClick={() => handleTryOn(selectedItem)}
+                                                disabled={tryOnLoading || !selfieDataUrl}
+                                                className="w-full py-4 bg-gradient-to-r from-[#1a1a1a] to-[#5a1e2a] text-white rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] transition-all disabled:opacity-40 shadow-lg"
+                                            >
+                                                {tryOnLoading ? (
+                                                    <><Loader2 size={16} className="animate-spin" /> Try-On AI çalışıyor (~60sn)...</>
+                                                ) : (
+                                                    <><Sparkles size={16} /> Üzerimde Nasıl Görünür?</>
+                                                )}
+                                            </button>
+
+                                            {/* Result */}
+                                            {tryOnResult && (
+                                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
+                                                    {tryOnResult.imageUrl ? (
+                                                        <img
+                                                            src={tryOnResult.imageUrl}
+                                                            alt="Virtual try-on result"
+                                                            className="w-full rounded-2xl object-cover shadow-2xl border border-white"
+                                                            style={{ maxHeight: '520px', objectPosition: 'top' }}
+                                                        />
+                                                    ) : selfieDataUrl ? (
+                                                        /* Demo composite preview */
+                                                        <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white bg-gray-50">
+                                                            <img src={selfieDataUrl} alt="person" className="w-full object-cover" style={{ maxHeight: '480px', objectPosition: 'top center' }} />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                                                            {selectedItem?.photos?.[0]?.url && (
+                                                                <div className="absolute inset-x-0 bottom-0 top-1/4 flex items-center justify-center">
+                                                                    <img
+                                                                        src={getImageUrl(selectedItem.photos[0].url, selectedItem.category)}
+                                                                        alt="garment"
+                                                                        className="h-48 object-contain opacity-75 mix-blend-multiply drop-shadow-2xl"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                            <div className="absolute top-3 left-3 px-3 py-1.5 bg-amber-500 text-white rounded-full text-[9px] font-black uppercase tracking-widest">
+                                                                Space Uyku Modunda
+                                                            </div>
+                                                            <div className="absolute bottom-4 inset-x-4 text-center">
+                                                                <p className="text-white text-[10px] font-black uppercase tracking-wider">
+                                                                    HuggingFace Space uyandırılıyor — tekrar dene
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    ) : null}
+                                                </motion.div>
+                                            )}
+                                        </div>
+
                                         {/* Actions */}
                                         <div className="pt-8 border-t border-gray-200">
-                                            <h4 className="text-[11px] font-bold uppercase tracking-widest mb-6 flex items-center gap-2 text-gray-500">
-                                                <ShoppingBag size={14}/> Shop The Look & Actions
-                                            </h4>
                                             <div className="flex flex-wrap gap-4">
-                                                <button className="px-8 py-4 bg-[#1a1a1a] text-white rounded-full text-sm font-medium hover:bg-[#5a1e2a] transition-all shadow-lg hover:shadow-xl">
-                                                    Kombine Ekle
-                                                </button>
-                                                <button className="px-8 py-4 bg-white border border-gray-200 text-gray-900 rounded-full text-sm font-medium hover:border-gray-900 transition-all">
-                                                    Benzerlerini Bul
-                                                </button>
                                                 <button onClick={() => handleDelete(selectedItem.id)} className="w-14 h-14 border border-gray-200 text-red-500 rounded-full flex items-center justify-center hover:bg-red-50 transition-all ml-auto">
                                                     <Trash2 size={18} />
                                                 </button>
@@ -653,8 +754,8 @@ const WardrobePage: React.FC = () => {
                                             Style Oracle Kararı
                                             <span className="px-3 py-1 bg-amber-500/20 text-amber-200 rounded-full text-[10px] font-mono tracking-widest uppercase">Güven Oranı: %98</span>
                                         </h4>
-                                        <p className="text-white/70 font-serif italic text-base lg:text-lg leading-relaxed">
-                                            "Dolabını analiz ettim. Özellikle seçtiğim {aiOutfitCards[0]?.category || 'bu'} ve {aiOutfitCards[1]?.category || 'diğer'} parça kombini, {activeCity.style} aurasının dinamiklerini kusursuz taşıyor. Bu seçim, tüm gün sürecek premium ve zahmetsiz bir silüet oluşturacak."
+                                        <p className="text-white/70 font-serif italic text-base lg:text-lg leading-relaxed min-h-[80px]">
+                                            "{aiOutfitCards[0] ? aiExplanation : "Analiz ediliyor..."}"
                                         </p>
                                     </div>
                                 </div>
@@ -703,6 +804,173 @@ const WardrobePage: React.FC = () => {
             </AnimatePresence>,
             document.body
         )}
+
+            {/* ── Virtual Try-On Fullscreen ── */}
+            {createPortal(
+                <AnimatePresence>
+                    {(tryOnLoading || tryOnFullscreen) && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.5 }}
+                            className="fixed inset-0 z-[99998] flex flex-col items-center justify-center bg-[#050505] overflow-hidden"
+                        >
+                            {/* Ambient blobs */}
+                            <motion.div animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.35, 0.15] }} transition={{ duration: 5, repeat: Infinity }} className="absolute -top-1/4 -left-1/4 w-[900px] h-[900px] bg-[#5a1e2a]/40 rounded-full blur-[200px] pointer-events-none" />
+                            <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.25, 0.1] }} transition={{ duration: 7, repeat: Infinity, delay: 1 }} className="absolute -bottom-1/4 -right-1/4 w-[700px] h-[700px] bg-indigo-900/30 rounded-full blur-[180px] pointer-events-none" />
+
+                            {/* Close (only when result is ready) */}
+                            {tryOnFullscreen && !tryOnLoading && (
+                                <motion.button
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                                    onClick={() => { setTryOnFullscreen(false); setTryOnResult(null); }}
+                                    className="absolute top-6 right-6 z-50 w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/20 transition-all border border-white/10"
+                                >
+                                    <X size={22} />
+                                </motion.button>
+                            )}
+
+                            {/* LOADING STATE */}
+                            {tryOnLoading && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 30 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="flex flex-col items-center gap-10 px-6 text-center"
+                                >
+                                    {/* Spinning ring */}
+                                    <div className="relative w-28 h-28">
+                                        <motion.div
+                                            animate={{ rotate: 360 }}
+                                            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                                            className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#5a1e2a] border-r-[#5a1e2a]/40"
+                                        />
+                                        <motion.div
+                                            animate={{ rotate: -360 }}
+                                            transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                                            className="absolute inset-3 rounded-full border border-transparent border-t-amber-400/50"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <Shirt size={28} className="text-white/60" />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-3xl lg:text-5xl font-serif text-white font-light tracking-tight mb-3">
+                                            AI Oluşturuyor
+                                        </h3>
+                                        <p className="text-white/40 font-serif italic text-lg">Virtual Try-On AI çalışıyor...</p>
+                                    </div>
+
+                                    {/* Step indicators */}
+                                    <div className="flex flex-col gap-3 w-full max-w-sm">
+                                        {[
+                                            { label: 'Görseller Yükleniyor', icon: '📤' },
+                                            { label: 'Giysi Analiz Ediliyor', icon: '🔍' },
+                                            { label: 'AI Üretiyor', icon: '✨' },
+                                            { label: 'Sonuç Hazırlanıyor', icon: '🎨' },
+                                        ].map((step, i) => (
+                                            <motion.div
+                                                key={i}
+                                                initial={{ opacity: 0.2 }}
+                                                animate={{ opacity: tryOnStep >= i ? 1 : 0.25 }}
+                                                transition={{ duration: 0.5 }}
+                                                className={`flex items-center gap-4 px-5 py-3.5 rounded-2xl border transition-all ${
+                                                    tryOnStep >= i
+                                                        ? 'bg-white/10 border-white/20 text-white'
+                                                        : 'border-white/5 text-white/20'
+                                                }`}
+                                            >
+                                                <span className="text-lg">{step.icon}</span>
+                                                <span className="text-sm font-mono tracking-widest uppercase">{step.label}</span>
+                                                {tryOnStep === i && tryOnLoading && (
+                                                    <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1, repeat: Infinity }} className="ml-auto w-2 h-2 rounded-full bg-amber-400" />
+                                                )}
+                                                {tryOnStep > i && (
+                                                    <span className="ml-auto text-emerald-400 text-xs font-bold">✓</span>
+                                                )}
+                                            </motion.div>
+                                        ))}
+                                    </div>
+
+                                    <p className="text-white/20 text-[11px] font-mono tracking-widest uppercase">~30-60 saniye sürebilir</p>
+                                </motion.div>
+                            )}
+
+                            {/* RESULT STATE */}
+                            {!tryOnLoading && tryOnFullscreen && tryOnResult?.imageUrl && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                                    className="relative flex flex-col lg:flex-row items-center gap-10 w-full max-w-5xl mx-auto px-6"
+                                >
+                                    {/* Result image */}
+                                    <div className="relative flex-1 max-w-md w-full">
+                                        <div className="absolute -inset-4 bg-gradient-to-br from-[#5a1e2a]/30 to-indigo-900/20 rounded-[3rem] blur-2xl" />
+                                        <img
+                                            src={tryOnResult.imageUrl}
+                                            alt="Virtual Try-On Result"
+                                            className="relative w-full rounded-[2.5rem] shadow-[0_40px_80px_rgba(0,0,0,0.6)] border border-white/10 object-contain"
+                                            style={{ maxHeight: '80vh', background: '#111' }}
+                                        />
+                                        <div className="absolute top-4 left-4 px-3 py-1.5 bg-emerald-500/90 backdrop-blur-md text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-lg">
+                                            <span>✓</span> {tryOnResult.model || 'IDM-VTON'}
+                                        </div>
+                                    </div>
+
+                                    {/* Side panel */}
+                                    <div className="flex flex-col gap-6 lg:max-w-xs w-full">
+                                        <div>
+                                            <p className="text-white/40 text-[10px] font-mono uppercase tracking-[0.3em] mb-2">Virtual Try-On</p>
+                                            <h3 className="text-3xl lg:text-4xl font-serif text-white font-light leading-tight">
+                                                İşte böyle<br />görünürsün.
+                                            </h3>
+                                            <p className="text-white/50 font-serif italic mt-3 text-sm leading-relaxed">
+                                                {tryOnResult.model || 'AI'} modeli senin fotoğrafını ve kıyafeti analiz ederek gerçekçi bir önizleme oluşturdu.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-col gap-3">
+                                            {/* Download */}
+                                            <a
+                                                href={tryOnResult.imageUrl}
+                                                download="virtual-tryon.jpg"
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="flex items-center justify-center gap-3 px-6 py-4 bg-white text-black rounded-full font-bold text-sm hover:bg-gray-100 hover:scale-[1.02] transition-all shadow-xl"
+                                            >
+                                                <span>⬇</span> İndir
+                                            </a>
+
+                                            {/* Retry */}
+                                            <button
+                                                onClick={() => {
+                                                    setTryOnFullscreen(false);
+                                                    setTryOnResult(null);
+                                                    if (selectedItem) setTimeout(() => handleTryOn(selectedItem), 100);
+                                                }}
+                                                className="flex items-center justify-center gap-3 px-6 py-4 bg-white/10 border border-white/20 text-white rounded-full font-medium text-sm hover:bg-white/15 transition-all"
+                                            >
+                                                <RefreshCw size={16} /> Tekrar Dene
+                                            </button>
+
+                                            {/* Close */}
+                                            <button
+                                                onClick={() => { setTryOnFullscreen(false); setTryOnResult(null); }}
+                                                className="flex items-center justify-center gap-3 px-6 py-3.5 text-white/40 rounded-full text-sm hover:text-white/70 transition-all"
+                                            >
+                                                <X size={14} /> Kapat
+                                            </button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
 
             {/* ── Outfit Builder Drawer (Studio) ── */}
             {createPortal(

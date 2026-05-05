@@ -5,7 +5,12 @@ import { LoggingInterceptor } from './common/logger.interceptor';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+
+  // Allow large payloads for base64 image uploads (try-on selfie)
+  const { json, urlencoded } = await import('express');
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   // Global Validation
   app.useGlobalPipes(new ValidationPipe({

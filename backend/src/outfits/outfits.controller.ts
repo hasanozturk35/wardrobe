@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Param, Body, UseGuards, Request } from '@nestjs/common';
 import { OutfitsService } from './outfits.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -18,6 +18,15 @@ export class OutfitsController {
         @Body() body: { name?: string, description?: string, coverImage?: string | null, coverUrl?: string | null, items: { garmentItemId: string, slot?: string }[] }
     ) {
         return this.outfitsService.createOutfit(req.user.userId, body);
+    }
+
+    @Patch(':id/links')
+    async updateLinks(
+        @Request() req: any,
+        @Param('id') id: string,
+        @Body() body: { links: { label: string; brand: string; url: string }[] }
+    ) {
+        return this.outfitsService.updateProductLinks(req.user.userId, id, body.links);
     }
 
     @Delete(':id')

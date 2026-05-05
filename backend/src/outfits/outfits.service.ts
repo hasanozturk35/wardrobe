@@ -64,6 +64,15 @@ export class OutfitsService {
         });
     }
 
+    async updateProductLinks(userId: string, outfitId: string, links: { label: string; brand: string; url: string }[]) {
+        const outfit = await this.prisma.outfit.findFirst({ where: { id: outfitId, userId } });
+        if (!outfit) throw new NotFoundException('Outfit not found');
+        return this.prisma.outfit.update({
+            where: { id: outfitId },
+            data: { productLinks: links as any },
+        });
+    }
+
     async deleteOutfit(userId: string, id: string) {
         const outfit = await this.prisma.outfit.findFirst({
             where: { id, userId }

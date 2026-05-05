@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
 import { SocialService } from './social.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -7,15 +7,15 @@ export class SocialController {
     constructor(private readonly socialService: SocialService) {}
 
     @Get('feed')
-    @UseGuards(AuthGuard('jwt')) // Optional: Can be public, but we keep it authenticated for MVP
-    getFeed() {
-        return this.socialService.getPublicFeed();
+    @UseGuards(AuthGuard('jwt'))
+    getFeed(@Query('occasion') occasion?: string) {
+        return this.socialService.getPublicFeed(occasion);
     }
 
     @Post('share/:id')
     @UseGuards(AuthGuard('jwt'))
-    toggleShare(@Request() req: any, @Param('id') outfitId: string) {
-        return this.socialService.togglePublicOutfit(req.user.userId, outfitId);
+    toggleShare(@Request() req: any, @Param('id') outfitId: string, @Body() body: { occasion?: string }) {
+        return this.socialService.togglePublicOutfit(req.user.userId, outfitId, body?.occasion);
     }
 
     @Post('like/:id')
@@ -32,10 +32,7 @@ export class SocialController {
 
     @Post('comments/:id')
     @UseGuards(AuthGuard('jwt'))
-    addComment(@Request() req: any, @Param('id') outfitId: string, @Request() body: any) {
-        // Note: In NestJS, @Request() req can be used to get body if not using @Body()
-        // But better to use @Body() if possible. I'll use req.body for simplicity here if body is passed as raw.
-        // Actually I'll use @Body() correctly if the imports allow it.
-        return this.socialService.addComment(req.user.userId, outfitId, req.body.content);
+    addComment(@Request() req: any, @Param('id') outfitId: string, @Body() body: { content: string }) {
+        return this.socialService.addComment(req.user.userId, outfitId, body.content);
     }
 }

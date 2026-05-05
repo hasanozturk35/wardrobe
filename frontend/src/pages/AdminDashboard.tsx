@@ -1,19 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../lib/api';
-import { Users, Activity, ShieldAlert, Trash2, ShieldCheck, RefreshCw, BarChart3, Database, Download, Eraser, Filter } from 'lucide-react';
+import { Users, Activity, ShieldAlert, Trash2, ShieldCheck, RefreshCw, BarChart3, Database, Download, Eraser, Filter, User, Camera, Edit3, Check, X, Shirt, BookOpen, Eye, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 const AdminDashboard: React.FC = () => {
-    const { user } = useAuthStore();
+    const { user, updateUser, logout } = useAuthStore();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'logs'>('stats');
+    const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'logs' | 'profile'>('stats');
     const [stats, setStats] = useState<any>(null);
     const [users, setUsers] = useState<any[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [logFilter, setLogFilter] = useState('all');
+
+    // Profile state
+    const [editingName, setEditingName] = useState(false);
+    const [nameValue, setNameValue] = useState(user?.name || '');
+    const [savingName, setSavingName] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [profileStats, setProfileStats] = useState<{ outfitCount: number; wardrobeCount: number; publicCount: number } | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Executive Admin Guard
     const isAdminByEmail = user?.email?.toLowerCase().startsWith('admin@');
@@ -60,11 +71,48 @@ const AdminDashboard: React.FC = () => {
             } else if (activeTab === 'logs') {
                 const res = await api.get(`/admin/logs?level=${logFilter}`);
                 setLogs(res.data);
+            } else if (activeTab === 'profile') {
+                const [profileRes, statsRes] = await Promise.all([
+                    api.get('/users/profile'),
+                    api.get('/users/stats'),
+                ]);
+                updateUser({ name: profileRes.data.name, avatarUrl: profileRes.data.avatarUrl });
+                setNameValue(profileRes.data.name || '');
+                setProfileStats(statsRes.data);
             }
         } catch (error) {
             console.error('Fetch error:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const saveName = async () => {
+        if (!nameValue.trim()) return;
+        setSavingName(true);
+        try {
+            const res = await api.patch('/users/profile', { name: nameValue.trim() });
+            updateUser({ name: res.data.name });
+            setEditingName(false);
+        } catch { } finally {
+            setSavingName(false);
+        }
+    };
+
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setAvatarPreview(URL.createObjectURL(file));
+        setUploadingAvatar(true);
+        try {
+            const form = new FormData();
+            form.append('avatar', file);
+            const res = await api.post('/users/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+            updateUser({ avatarUrl: res.data.avatarUrl });
+        } catch {
+            setAvatarPreview(null);
+        } finally {
+            setUploadingAvatar(false);
         }
     };
 
@@ -157,7 +205,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex bg-white/50 backdrop-blur-3xl border border-white/60 p-2 rounded-[2.5rem] shadow-elite">
-                        {['stats', 'users', 'logs'].map((tab) => (
+                        {['stats', 'users', 'logs', 'profile'].map((tab) => (
                             <button 
                                 key={tab}
                                 onClick={() => setActiveTab(tab as any)}
@@ -412,6 +460,101 @@ const AdminDashboard: React.FC = () => {
                                             ))
                                         )}
                                     </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'profile' && (
+                                <div className="max-w-2xl mx-auto space-y-12">
+                                    {/* Avatar + identity */}
+                                    <div className="bg-white rounded-[4rem] p-16 shadow-elite border border-gray-50 flex flex-col sm:flex-row items-center gap-12">
+                                        <div className="relative shrink-0">
+                                            <div className="w-36 h-36 rounded-full border-4 border-gray-50 shadow-2xl overflow-hidden bg-gray-100 flex items-center justify-center">
+                                                {(avatarPreview || (user?.avatarUrl ? `${API_URL}${user.avatarUrl}` : null)) ? (
+                                                    <img src={avatarPreview || `${API_URL}${user!.avatarUrl}`} alt="avatar" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <User size={52} className="text-gray-300" />
+                                                )}
+                                                {uploadingAvatar && (
+                                                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                                                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <button onClick={() => fileInputRef.current?.click()}
+                                                className="absolute bottom-1 right-1 w-10 h-10 bg-black text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                                                <Camera size={16} />
+                                            </button>
+                                            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                                        </div>
+
+                                        <div className="flex-1 min-w-0">
+                                            <AnimatePresence mode="wait">
+                                                {editingName ? (
+                                                    <motion.div key="edit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                                        className="flex items-center gap-3 mb-3">
+                                                        <input autoFocus value={nameValue}
+                                                            onChange={e => setNameValue(e.target.value)}
+                                                            onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
+                                                            className="text-3xl font-serif border-b-2 border-black bg-transparent outline-none w-56" />
+                                                        <button onClick={saveName} disabled={savingName}
+                                                            className="w-9 h-9 bg-black text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50">
+                                                            {savingName ? <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" /> : <Check size={15} />}
+                                                        </button>
+                                                        <button onClick={() => { setEditingName(false); setNameValue(user?.name || ''); }}
+                                                            className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center hover:scale-110 transition-transform">
+                                                            <X size={15} />
+                                                        </button>
+                                                    </motion.div>
+                                                ) : (
+                                                    <motion.div key="view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                                        className="flex items-center gap-3 mb-3">
+                                                        <h2 className="text-3xl font-serif text-gray-900">{user?.name || 'İsimsiz'}</h2>
+                                                        <button onClick={() => setEditingName(true)}
+                                                            className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-300 hover:text-black transition-colors">
+                                                            <Edit3 size={14} />
+                                                        </button>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                            <p className="text-sm text-gray-400 tracking-wide mb-3">{user?.email}</p>
+                                            <span className="inline-block text-[9px] font-black uppercase tracking-widest bg-black text-white px-4 py-1.5 rounded-full">Admin</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Stats */}
+                                    {profileStats && (
+                                        <div className="grid grid-cols-3 gap-6">
+                                            {[
+                                                { icon: Shirt,    label: 'Gardırop', value: profileStats.wardrobeCount },
+                                                { icon: BookOpen, label: 'Kombin',   value: profileStats.outfitCount },
+                                                { icon: Eye,      label: 'Açık',     value: profileStats.publicCount },
+                                            ].map(({ icon: Icon, label, value }) => (
+                                                <div key={label} className="bg-white rounded-[3rem] p-10 shadow-elite border border-gray-50 flex flex-col items-center gap-3">
+                                                    <Icon size={20} className="text-gray-300" />
+                                                    <span className="text-4xl font-serif">{value}</span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-300">{label}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Üyelik + çıkış */}
+                                    <div className="bg-white rounded-[3rem] border border-gray-50 shadow-elite overflow-hidden">
+                                        <div className="px-10 py-6 border-b border-gray-50">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">Hesap</p>
+                                        </div>
+                                        <div className="px-10 py-6">
+                                            <p className="text-xs font-semibold text-gray-600">Üyelik tarihi</p>
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <button onClick={logout}
+                                        className="w-full flex items-center justify-center gap-2 py-5 rounded-[3rem] border border-gray-200 text-gray-400 hover:border-black hover:text-black transition-all text-[10px] font-black uppercase tracking-widest">
+                                        <LogOut size={14} /> Çıkış Yap
+                                    </button>
                                 </div>
                             )}
                         </motion.div>

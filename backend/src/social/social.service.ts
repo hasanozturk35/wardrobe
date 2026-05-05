@@ -9,15 +9,15 @@ export class SocialService {
         private gateway: SocialGateway,
     ) {}
 
-    async getPublicFeed() {
+    async getPublicFeed(occasion?: string) {
         return this.prisma.outfit.findMany({
-            where: { isPublic: true },
+            where: { isPublic: true, ...(occasion ? { occasion } : {}) },
             include: {
                 user: {
                     select: { id: true, name: true, avatarUrl: true }
                 },
                 items: {
-                    include: { garmentItem: true }
+                    include: { garmentItem: { include: { photos: true } } }
                 },
                 _count: {
                     select: { likes: true, comments: true }
@@ -28,7 +28,7 @@ export class SocialService {
         });
     }
 
-    async togglePublicOutfit(userId: string, outfitId: string) {
+    async togglePublicOutfit(userId: string, outfitId: string, occasion?: string) {
         const outfit = await this.prisma.outfit.findFirst({
             where: { id: outfitId, userId }
         });
@@ -37,9 +37,13 @@ export class SocialService {
             throw new NotFoundException('Outfit not found or unauthorized');
         }
 
+        const makingPublic = !outfit.isPublic;
         const updated = await this.prisma.outfit.update({
             where: { id: outfitId },
-            data: { isPublic: !outfit.isPublic }
+            data: {
+                isPublic: makingPublic,
+                ...(makingPublic && occasion ? { occasion } : {}),
+            } as any,
         });
 
         if (updated.isPublic) {
@@ -47,7 +51,7 @@ export class SocialService {
                 where: { id: outfitId },
                 include: {
                     user: { select: { id: true, name: true, avatarUrl: true } },
-                    items: { include: { garmentItem: true } },
+                    items: { include: { garmentItem: { include: { photos: true } } } },
                     _count: { select: { likes: true, comments: true } }
                 }
             });

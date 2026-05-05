@@ -14,6 +14,7 @@ import AvatarOnboarding from './avatar/pages/AvatarOnboarding';
 import AvatarProfilePage from './avatar/pages/AvatarProfilePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminDashboard from './pages/AdminDashboard';
+import ProfilePage from './pages/ProfilePage';
 import React from 'react';
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
@@ -61,6 +62,7 @@ function App() {
                   <Route path="/avatar/onboarding" element={<AvatarOnboarding />} />
                   <Route path="/avatar/profile" element={<AvatarProfilePage />} />
                   <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/profile" element={<ProfilePage />} />
                 </Routes>
               </MainLayout>
             </ProtectedRoute>

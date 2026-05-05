@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Users, Plus, Sparkles, Globe, Lock } from 'lucide-react';
+import { Trash2, Users, Plus, Sparkles, Globe, Lock, Link2, X, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getImageUrl } from '../config';
 import { api } from '../lib/api';
@@ -17,6 +17,13 @@ interface OutfitItem {
     slot: string | null;
 }
 
+interface ProductLink {
+    label: string;
+    brand: string;
+    url: string;
+    imageUrl?: string;
+}
+
 interface Outfit {
     id: string;
     name: string | null;
@@ -25,6 +32,7 @@ interface Outfit {
     createdAt: string;
     isPublic?: boolean;
     items: OutfitItem[];
+    productLinks?: ProductLink[] | null;
 }
 
 // ─── Item Collage (no coverUrl fallback) ─────────────────────────────────────
@@ -89,7 +97,8 @@ const CardActions: React.FC<{
     outfit: Outfit;
     onShare: (e: React.MouseEvent) => void;
     onDelete: (e: React.MouseEvent) => void;
-}> = ({ outfit, onShare, onDelete }) => (
+    onLinks: (e: React.MouseEvent) => void;
+}> = ({ outfit, onShare, onDelete, onLinks }) => (
     <div className="absolute top-5 inset-x-5 flex justify-between items-start">
         {outfit.isPublic ? (
             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 backdrop-blur-md border border-white/30 rounded-full text-[9px] font-black uppercase tracking-widest text-white">
@@ -101,6 +110,13 @@ const CardActions: React.FC<{
             </span>
         )}
         <div className="flex gap-2">
+            <button
+                onClick={onLinks}
+                title="Ürün linkleri ekle"
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-lg backdrop-blur-md ${outfit.productLinks?.length ? 'bg-amber-400 text-white' : 'bg-white/80 text-black'}`}
+            >
+                <Link2 size={13} />
+            </button>
             <button
                 onClick={onShare}
                 title={outfit.isPublic ? 'Topluluktan kaldır' : 'Topluluğa paylaş'}
@@ -120,6 +136,17 @@ const CardActions: React.FC<{
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const OCCASIONS = [
+    { value: 'Kahve', label: 'Kahve', emoji: '☕' },
+    { value: 'Ofis', label: 'Ofis', emoji: '💼' },
+    { value: 'Date', label: 'Date', emoji: '🌙' },
+    { value: 'Günlük', label: 'Günlük', emoji: '👟' },
+    { value: 'Gece', label: 'Gece', emoji: '🎉' },
+    { value: 'Spor', label: 'Spor', emoji: '🏃' },
+    { value: 'Bahar', label: 'Bahar', emoji: '🌸' },
+    { value: 'Kış', label: 'Kış', emoji: '❄️' },
+];
+
 const LookbookPage: React.FC = () => {
     const navigate = useNavigate();
     const { showToast } = useUIStore();
@@ -127,6 +154,11 @@ const LookbookPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState(false);
     const [isDesignerOpen, setIsDesignerOpen] = useState(false);
+    const [linksOutfit, setLinksOutfit] = useState<Outfit | null>(null);
+    const [draftLinks, setDraftLinks] = useState<ProductLink[]>([]);
+    const [savingLinks, setSavingLinks] = useState(false);
+    const [occasionPickerOutfitId, setOccasionPickerOutfitId] = useState<string | null>(null);
+    const [selectedOccasion, setSelectedOccasion] = useState('');
 
     useEffect(() => { fetchOutfits(); }, []);
 
@@ -145,10 +177,27 @@ const LookbookPage: React.FC = () => {
 
     const handleToggleShare = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
+        const outfit = outfits.find(o => o.id === id);
+        if (!outfit) return;
+        if (!outfit.isPublic) {
+            setSelectedOccasion('');
+            setOccasionPickerOutfitId(id);
+            return;
+        }
         try {
-            const res = await api.post(`/social/share/${id}`);
+            const res = await api.post(`/social/share/${id}`, {});
             setOutfits(prev => prev.map(o => o.id === id ? { ...o, isPublic: res.data.isPublic } : o));
-            showToast(res.data.isPublic ? 'Topluluğa paylaşıldı!' : 'Topluluktan kaldırıldı');
+            showToast('Topluluktan kaldırıldı');
+        } catch (e) { console.error(e); }
+    };
+
+    const confirmShare = async (occasion?: string) => {
+        if (!occasionPickerOutfitId) return;
+        setOccasionPickerOutfitId(null);
+        try {
+            const res = await api.post(`/social/share/${occasionPickerOutfitId}`, { occasion });
+            setOutfits(prev => prev.map(o => o.id === occasionPickerOutfitId ? { ...o, isPublic: res.data.isPublic } : o));
+            showToast('Topluluğa paylaşıldı!');
         } catch (e) { console.error(e); }
     };
 
@@ -160,6 +209,39 @@ const LookbookPage: React.FC = () => {
             setOutfits(prev => prev.filter(o => o.id !== id));
             showToast('Kombin silindi');
         } catch (e) { console.error(e); }
+    };
+
+    const openLinks = (outfit: Outfit, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setLinksOutfit(outfit);
+        setDraftLinks(outfit.productLinks?.length ? [...outfit.productLinks] : [{ label: '', brand: '', url: '' }]);
+    };
+
+    const addLinkRow = () => setDraftLinks(prev => [...prev, { label: '', brand: '', url: '' }]);
+
+    const updateLinkRow = (i: number, field: keyof ProductLink, value: string) =>
+        setDraftLinks(prev => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
+
+    const removeLinkRow = (i: number) =>
+        setDraftLinks(prev => prev.filter((_, idx) => idx !== i));
+
+    const saveLinks = async () => {
+        if (!linksOutfit) return;
+        setSavingLinks(true);
+        const normalizeUrl = (u: string) => u && !/^https?:\/\//i.test(u) ? `https://${u}` : u;
+        const validLinks = draftLinks
+            .filter(l => l.brand.trim() || l.label.trim())
+            .map(l => ({
+                ...l,
+                url: normalizeUrl(l.url),
+                imageUrl: l.imageUrl ? normalizeUrl(l.imageUrl) : '',
+            }));
+        try {
+            await api.patch(`/outfits/${linksOutfit.id}/links`, { links: validLinks });
+            setOutfits(prev => prev.map(o => o.id === linksOutfit.id ? { ...o, productLinks: validLinks } : o));
+            showToast('Ürün linkleri kaydedildi');
+            setLinksOutfit(null);
+        } catch { showToast('Kaydedilemedi'); } finally { setSavingLinks(false); }
     };
 
     const publicCount  = outfits.filter(o => o.isPublic).length;
@@ -269,6 +351,7 @@ const LookbookPage: React.FC = () => {
                                 outfit={outfits[0]}
                                 onShare={(e) => handleToggleShare(outfits[0].id, e)}
                                 onDelete={(e) => handleDelete(outfits[0].id, e)}
+                                onLinks={(e) => openLinks(outfits[0], e)}
                             />
 
                             {/* Featured label */}
@@ -300,6 +383,7 @@ const LookbookPage: React.FC = () => {
                                             outfit={outfit}
                                             onShare={(e) => handleToggleShare(outfit.id, e)}
                                             onDelete={(e) => handleDelete(outfit.id, e)}
+                                            onLinks={(e) => openLinks(outfit, e)}
                                         />
                                     </motion.div>
                                 ))}
@@ -346,6 +430,129 @@ const LookbookPage: React.FC = () => {
                 onClose={() => setIsDesignerOpen(false)}
                 onSuccess={fetchOutfits}
             />
+
+            {/* Occasion Picker Modal */}
+            {occasionPickerOutfitId && (
+                <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center">
+                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setOccasionPickerOutfitId(null)} />
+                    <motion.div
+                        initial={{ opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="relative bg-white rounded-t-[3rem] sm:rounded-[3rem] w-full max-w-md shadow-2xl overflow-hidden"
+                    >
+                        <div className="px-8 pt-8 pb-4 border-b border-gray-100">
+                            <h3 className="text-2xl font-serif">Kategori Seç</h3>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mt-1">Bu kombin hangi tarza uyuyor?</p>
+                        </div>
+                        <div className="px-8 py-6 grid grid-cols-4 gap-3">
+                            {OCCASIONS.map(occ => (
+                                <button
+                                    key={occ.value}
+                                    onClick={() => setSelectedOccasion(prev => prev === occ.value ? '' : occ.value)}
+                                    className={`flex flex-col items-center gap-1.5 py-4 rounded-2xl transition-all hover:scale-105 active:scale-95 border-2 ${
+                                        selectedOccasion === occ.value
+                                            ? 'border-black bg-black text-white'
+                                            : 'border-gray-100 bg-gray-50 text-gray-700 hover:border-gray-300'
+                                    }`}
+                                >
+                                    <span className="text-2xl leading-none">{occ.emoji}</span>
+                                    <span className="text-[9px] font-black uppercase tracking-wide leading-none">{occ.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="px-8 pb-8 pt-2 flex gap-3">
+                            <button
+                                onClick={() => confirmShare(undefined)}
+                                className="flex-1 py-3.5 border-2 border-gray-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-gray-400 transition-all"
+                            >
+                                Atla
+                            </button>
+                            <button
+                                onClick={() => confirmShare(selectedOccasion || undefined)}
+                                className="flex-[2] py-3.5 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg"
+                            >
+                                Paylaş {selectedOccasion && `· ${selectedOccasion}`}
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Product Links Modal */}
+            {linksOutfit && (
+                <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center">
+                    <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setLinksOutfit(null)} />
+                    <motion.div
+                        initial={{ opacity: 0, y: 40 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 40 }}
+                        className="relative bg-white rounded-t-[3rem] sm:rounded-[3rem] w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+                    >
+                        <div className="flex items-center justify-between px-8 pt-8 pb-5 border-b border-gray-100">
+                            <div>
+                                <h3 className="text-2xl font-serif">Ürün Linkleri</h3>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mt-0.5">
+                                    {linksOutfit.name || 'Editorial Look'}
+                                </p>
+                            </div>
+                            <button onClick={() => setLinksOutfit(null)} className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto px-8 py-5 space-y-3">
+                            {draftLinks.map((link, i) => (
+                                <div key={i} className="flex gap-2 items-start">
+                                    <span className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-[9px] font-black shrink-0 mt-2">
+                                        {i + 1}
+                                    </span>
+                                    <div className="flex-1 grid grid-cols-2 gap-2">
+                                        <input
+                                            placeholder="Marka (DeFacto)"
+                                            value={link.brand}
+                                            onChange={e => updateLinkRow(i, 'brand', e.target.value)}
+                                            className="col-span-1 px-3 py-2 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/10 placeholder:text-gray-300"
+                                        />
+                                        <input
+                                            placeholder="Ürün (Pantolon)"
+                                            value={link.label}
+                                            onChange={e => updateLinkRow(i, 'label', e.target.value)}
+                                            className="col-span-1 px-3 py-2 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/10 placeholder:text-gray-300"
+                                        />
+                                        <input
+                                            placeholder="Ürün linki (https://...)"
+                                            value={link.url}
+                                            onChange={e => updateLinkRow(i, 'url', e.target.value)}
+                                            className="col-span-2 px-3 py-2 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/10 placeholder:text-gray-300"
+                                        />
+                                        <input
+                                            placeholder="Ürün görseli (https://...)"
+                                            value={link.imageUrl || ''}
+                                            onChange={e => updateLinkRow(i, 'imageUrl', e.target.value)}
+                                            className="col-span-2 px-3 py-2 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/10 placeholder:text-gray-300"
+                                        />
+                                    </div>
+                                    <button onClick={() => removeLinkRow(i)} className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-400 transition-colors shrink-0 mt-2">
+                                        <X size={13} />
+                                    </button>
+                                </div>
+                            ))}
+                            <button onClick={addLinkRow}
+                                className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-400 hover:border-black hover:text-black transition-all">
+                                + Ürün Ekle
+                            </button>
+                        </div>
+
+                        <div className="px-8 pb-8 pt-4 border-t border-gray-100">
+                            <button onClick={saveLinks} disabled={savingLinks}
+                                className="w-full py-4 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                                {savingLinks ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <ExternalLink size={13} />}
+                                Kaydet
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
 
             <style>{`
                 .tracking-tightest { letter-spacing: -0.06em; }

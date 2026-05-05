@@ -16,170 +16,105 @@ export interface Product {
     productUrl: string;
 }
 
-const MAX_SEEN    = 200;
 const DAILY_LIMIT = 20;
 
-// ── Curated fallback images per category ─────────────────────────────────────
-const FALLBACK_IMAGES: Record<string, string[]> = {
-    skirt:   ['https://images.unsplash.com/photo-1583496664160-39c17360801d?w=800&q=80', 'https://images.unsplash.com/photo-1548690312-e3b507d8c110?w=800&q=80'],
-    jacket:  ['https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=800&q=80', 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80'],
-    top:     ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80', 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&q=80'],
-    jeans:   ['https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&q=80', 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=80'],
-    shirt:   ['https://images.unsplash.com/photo-1596755094514-f87034a31217?w=800&q=80', 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800&q=80'],
-    coat:    ['https://images.unsplash.com/photo-1544022613-e87ef7556554?w=800&q=80', 'https://images.unsplash.com/photo-1539533057403-0c6688c566fa?w=800&q=80'],
-    dress:   ['https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&q=80', 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=800&q=80'],
-    sweater: ['https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80', 'https://images.unsplash.com/photo-1617391654929-0c1a1bd706f1?w=800&q=80'],
-};
+// Keyword-based Unsplash URL — category guaranteed, seed makes it stable per item
+const u = (query: string, sig: number) =>
+    `https://source.unsplash.com/800x1200/?${encodeURIComponent(query)}&sig=${sig}`;
 
 const getCategoryFallback = (category: string): string => {
-    const map: Record<string, string> = {
-        'Alt Giyim': FALLBACK_IMAGES.jeans[0],
-        'Dış Giyim': FALLBACK_IMAGES.jacket[0],
-        'Üst Giyim': FALLBACK_IMAGES.top[0],
-        'Elbise':    FALLBACK_IMAGES.dress[0],
-        'Aksesuar':  FALLBACK_IMAGES.shirt[0],
-    };
-    return map[category] || FALLBACK_IMAGES.top[0];
+    const key = (category || '').toLowerCase();
+    if (key.includes('etek'))                                          return u('midi skirt women fashion', 999);
+    if (key.includes('elbise'))                                        return u('women dress fashion elegant', 998);
+    if (key.includes('jean') || key.includes('pantolon'))              return u('denim jeans fashion outfit', 997);
+    if (key.includes('kazak') || key.includes('sweat') || key.includes('kapüş')) return u('sweater hoodie knitwear fashion', 996);
+    if (key.includes('mont') || key.includes('kaban') || key.includes('ceket') || key.includes('dış')) return u('jacket coat fashion outerwear', 995);
+    if (key.includes('gömlek') || key.includes('bluz'))               return u('shirt blouse fashion women', 994);
+    return u('fashion clothing minimal outfit', 993);
 };
 
-// Marka bazlı arama URL üreticileri
-const brandUrl = (brand: string, gender: 'Kadın' | 'Erkek', q: string): string => {
-    const enc = encodeURIComponent(q);
-    const genderParam = gender === 'Kadın' ? 'kadin' : 'erkek';
-    switch (brand) {
-        case 'Zara':         return `https://www.zara.com/tr/tr/search?searchTerm=${enc}`;
-        case 'Bershka':      return `https://www.bershka.com/tr/kadin/search?searchTerm=${enc}`;
-        case 'Pull&Bear':    return `https://www.pullandbear.com/tr/${genderParam}/search?searchTerm=${enc}`;
-        case 'LC Waikiki':   return `https://www.lcw.com/tr-TR/TR/arama?q=${enc}&gender=${genderParam}`;
-        case 'Koton':        return `https://www.koton.com/tr/arama?q=${enc}`;
-        case 'Mavi':         return `https://www.mavi.com/search?q=${enc}`;
-        case 'DeFacto':      return `https://www.defacto.com.tr/search?q=${enc}`;
-        default:             return `https://www.zara.com/tr/tr/search?searchTerm=${enc}`;
+const brandUrl = (brand: string, gender: string, item: string) => `https://www.google.com/search?q=${encodeURIComponent(`${brand} ${gender} ${item}`)}`;
+
+const getSeenIds = (): Set<string> => {
+    try {
+        const ids = localStorage.getItem('seenItemIds');
+        return ids ? new Set(JSON.parse(ids)) : new Set();
+    } catch {
+        return new Set();
     }
 };
 
+const markSeen = (id: string) => {
+    const ids = getSeenIds();
+    ids.add(id);
+    localStorage.setItem('seenItemIds', JSON.stringify(Array.from(ids)));
+};
+
 const CURATED_CATALOG: Product[] = [
-    // ── Kadın (8 ürün) ─────────────────────────────────────────────────────────
-    {
-        id: 'k-01', title: 'Midi Etek', brand: 'Zara', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1548690312-e3b507d8c110?w=800&q=80',
-        category: 'Alt Giyim', productUrl: brandUrl('Zara', 'Kadın', 'midi etek'),
-    },
-    {
-        id: 'k-02', title: 'Saten Bluz', brand: 'Pull&Bear', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&q=80',
-        category: 'Üst Giyim', productUrl: brandUrl('Pull&Bear', 'Kadın', 'saten bluz'),
-    },
-    {
-        id: 'k-03', title: 'Mom Jean', brand: 'Bershka', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=80',
-        category: 'Alt Giyim', productUrl: brandUrl('Bershka', 'Kadın', 'mom jean'),
-    },
-    {
-        id: 'k-04', title: 'Oversize Blazer', brand: 'Zara', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80',
-        category: 'Dış Giyim', productUrl: brandUrl('Zara', 'Kadın', 'oversize blazer'),
-    },
-        category: 'Dış Giyim', productUrl: brandUrl('Zara', 'Kadın', 'oversize blazer'),
-    },
-    {
-        id: 'k-05', title: 'Crop Tişört', brand: 'LC Waikiki', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1618932260643-eee4a2f652a6?w=800&q=80&fit=crop',
-        category: 'Üst Giyim', productUrl: brandUrl('LC Waikiki', 'Kadın', 'crop tişört'),
-    },
-    {
-        id: 'k-06', title: 'Trençkot', brand: 'Koton', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=800&q=80&fit=crop',
-        category: 'Dış Giyim', productUrl: brandUrl('Koton', 'Kadın', 'trençkot'),
-    },
-    {
-        id: 'k-07', title: 'Midi Elbise', brand: 'DeFacto', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=800&q=80&fit=crop',
-        category: 'Elbise', productUrl: brandUrl('DeFacto', 'Kadın', 'midi elbise'),
-    },
-    {
-        id: 'k-08', title: 'Örme Kazak', brand: 'Pull&Bear', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80',
-        category: 'Üst Giyim', productUrl: brandUrl('Pull&Bear', 'Kadın', 'örme kazak'),
-    },
-    {
-        id: 'k-09', title: 'Mini Etek', brand: 'Bershka', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&q=80',
-        category: 'Alt Giyim', productUrl: brandUrl('Bershka', 'Kadın', 'mini etek'),
-    },
-    {
-        id: 'k-10', title: 'Keten Gömlek', brand: 'Mavi', gender: 'Kadın',
-        imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800&q=80',
-        category: 'Üst Giyim', productUrl: brandUrl('Mavi', 'Kadın', 'keten gömlek'),
-    },
+    // ── Kadın (10 ürün) ────────────────────────────────────────────────────────
+    { id: 'k-01', title: 'Crop Tişört',     brand: 'LC Waikiki', gender: 'Kadın', category: 'Üst Giyim',
+      imageUrl: u('crop top women fashion white minimal studio', 101),
+      productUrl: brandUrl('LC Waikiki', 'Kadın', 'crop tişört') },
+    { id: 'k-02', title: 'Örme Kazak',      brand: 'Pull&Bear',  gender: 'Kadın', category: 'Üst Giyim',
+      imageUrl: u('knit sweater women cozy fashion autumn', 102),
+      productUrl: brandUrl('Pull&Bear', 'Kadın', 'örme kazak') },
+    { id: 'k-03', title: 'Mom Jean',        brand: 'Bershka',    gender: 'Kadın', category: 'Alt Giyim',
+      imageUrl: u('mom jeans women denim high waist fashion', 103),
+      productUrl: brandUrl('Bershka', 'Kadın', 'mom jean') },
+    { id: 'k-04', title: 'Oversize Blazer', brand: 'Zara',       gender: 'Kadın', category: 'Dış Giyim',
+      imageUrl: u('oversized blazer women fashion elegant', 104),
+      productUrl: brandUrl('Zara', 'Kadın', 'oversize blazer') },
+    { id: 'k-05', title: 'Midi Etek',       brand: 'Koton',      gender: 'Kadın', category: 'Alt Giyim',
+      imageUrl: u('midi skirt women fashion elegant flowy', 105),
+      productUrl: brandUrl('Koton', 'Kadın', 'midi etek') },
+    { id: 'k-06', title: 'Saten Bluz',      brand: 'DeFacto',    gender: 'Kadın', category: 'Üst Giyim',
+      imageUrl: u('satin silk blouse women fashion minimal', 106),
+      productUrl: brandUrl('DeFacto', 'Kadın', 'saten bluz') },
+    { id: 'k-07', title: 'Trençkot',        brand: 'Mavi',       gender: 'Kadın', category: 'Dış Giyim',
+      imageUrl: u('trench coat women fashion beige classic', 107),
+      productUrl: brandUrl('Mavi', 'Kadın', 'trençkot') },
+    { id: 'k-08', title: 'Midi Elbise',     brand: 'Bershka',    gender: 'Kadın', category: 'Elbise',
+      imageUrl: u('midi dress women fashion summer elegant', 108),
+      productUrl: brandUrl('Bershka', 'Kadın', 'midi elbise') },
+    { id: 'k-09', title: 'Keten Gömlek',    brand: 'Mavi',       gender: 'Kadın', category: 'Üst Giyim',
+      imageUrl: u('linen shirt women casual fashion summer', 109),
+      productUrl: brandUrl('Mavi', 'Kadın', 'keten gömlek') },
+    { id: 'k-10', title: 'Floral Elbise',   brand: 'Zara',       gender: 'Kadın', category: 'Elbise',
+      imageUrl: u('floral dress women fashion spring colorful', 110),
+      productUrl: brandUrl('Zara', 'Kadın', 'çiçekli elbise') },
+
     // ── Erkek (10 ürün) ────────────────────────────────────────────────────────
-    {
-        id: 'e-01', title: 'Slim Fit Chino', brand: 'Zara', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=80',
-        category: 'Alt Giyim', productUrl: brandUrl('Zara', 'Erkek', 'slim fit chino'),
-    },
-    {
-        id: 'e-02', title: 'Oxford Gömlek', brand: 'Mavi', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1520006048725-9afd01b1fda3?w=800&q=80',
-        category: 'Üst Giyim', productUrl: brandUrl('Mavi', 'Erkek', 'oxford gömlek'),
-    },
-    {
-        id: 'e-03', title: 'Oversize Sweatshirt', brand: 'Bershka', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80',
-        category: 'Üst Giyim', productUrl: brandUrl('Bershka', 'Erkek', 'oversize sweatshirt'),
-    },
-    {
-        id: 'e-04', title: 'Denim Ceket', brand: 'LC Waikiki', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=800&q=80',
-        category: 'Dış Giyim', productUrl: brandUrl('LC Waikiki', 'Erkek', 'denim ceket'),
-    },
-    {
-        id: 'e-05', title: 'Slim Jean', brand: 'Mavi', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&q=80',
-        category: 'Alt Giyim', productUrl: brandUrl('Mavi', 'Erkek', 'slim jean'),
-    },
-    {
-        id: 'e-06', title: 'Basic Tişört', brand: 'Pull&Bear', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1489749798305-4fea3ba63d60?w=800&q=80',
-        category: 'Üst Giyim', productUrl: brandUrl('Pull&Bear', 'Erkek', 'basic tişört'),
-    },
-    {
-        id: 'e-07', title: 'Şişme Mont', brand: 'DeFacto', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1539533057403-0c6688c566fa?w=800&q=80',
-        category: 'Dış Giyim', productUrl: brandUrl('DeFacto', 'Erkek', 'şişme mont'),
-    },
-    {
-        id: 'e-08', title: 'Polo Gömlek', brand: 'Koton', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&q=80',
-        category: 'Üst Giyim', productUrl: brandUrl('Koton', 'Erkek', 'polo gömlek'),
-    },
-    {
-        id: 'e-09', title: 'Regular Jean', brand: 'LC Waikiki', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1548622783-f82b0e3b2efb?w=800&q=80',
-        category: 'Alt Giyim', productUrl: brandUrl('LC Waikiki', 'Erkek', 'regular jean'),
-    },
-    {
-        id: 'e-10', title: 'Kapüşonlu Sweatshirt', brand: 'Pull&Bear', gender: 'Erkek',
-        imageUrl: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80',
-        category: 'Üst Giyim', productUrl: brandUrl('Pull&Bear', 'Erkek', 'kapüşonlu sweatshirt'),
-    },
+    { id: 'e-01', title: 'Basic Tişört',         brand: 'Pull&Bear',  gender: 'Erkek', category: 'Üst Giyim',
+      imageUrl: u('basic white tshirt men minimal fashion studio', 201),
+      productUrl: brandUrl('Pull&Bear', 'Erkek', 'basic tişört') },
+    { id: 'e-02', title: 'Oversize Sweatshirt',  brand: 'Bershka',    gender: 'Erkek', category: 'Üst Giyim',
+      imageUrl: u('oversized sweatshirt men streetwear fashion', 202),
+      productUrl: brandUrl('Bershka', 'Erkek', 'oversize sweatshirt') },
+    { id: 'e-03', title: 'Slim Jean',            brand: 'Mavi',       gender: 'Erkek', category: 'Alt Giyim',
+      imageUrl: u('slim fit jeans men denim fashion blue', 203),
+      productUrl: brandUrl('Mavi', 'Erkek', 'slim jean') },
+    { id: 'e-04', title: 'Denim Ceket',          brand: 'LC Waikiki', gender: 'Erkek', category: 'Dış Giyim',
+      imageUrl: u('denim jacket men fashion streetwear blue', 204),
+      productUrl: brandUrl('LC Waikiki', 'Erkek', 'denim ceket') },
+    { id: 'e-05', title: 'Polo Gömlek',          brand: 'Koton',      gender: 'Erkek', category: 'Üst Giyim',
+      imageUrl: u('polo shirt men fashion classic sport', 205),
+      productUrl: brandUrl('Koton', 'Erkek', 'polo gömlek') },
+    { id: 'e-06', title: 'Oxford Gömlek',        brand: 'Mavi',       gender: 'Erkek', category: 'Üst Giyim',
+      imageUrl: u('oxford button shirt men formal fashion', 206),
+      productUrl: brandUrl('Mavi', 'Erkek', 'oxford gömlek') },
+    { id: 'e-07', title: 'Şişme Mont',           brand: 'DeFacto',    gender: 'Erkek', category: 'Dış Giyim',
+      imageUrl: u('puffer down jacket men winter fashion puffy', 207),
+      productUrl: brandUrl('DeFacto', 'Erkek', 'şişme mont') },
+    { id: 'e-08', title: 'Slim Fit Chino',       brand: 'Zara',       gender: 'Erkek', category: 'Alt Giyim',
+      imageUrl: u('chino pants men fashion slim beige khaki', 208),
+      productUrl: brandUrl('Zara', 'Erkek', 'slim fit chino') },
+    { id: 'e-09', title: 'Kapüşonlu Sweatshirt', brand: 'Pull&Bear',  gender: 'Erkek', category: 'Üst Giyim',
+      imageUrl: u('hoodie men fashion streetwear casual pullover', 209),
+      productUrl: brandUrl('Pull&Bear', 'Erkek', 'kapüşonlu sweatshirt') },
+    { id: 'e-10', title: 'Keten Gömlek',         brand: 'LC Waikiki', gender: 'Erkek', category: 'Üst Giyim',
+      imageUrl: u('linen shirt men casual summer fashion beige', 210),
+      productUrl: brandUrl('LC Waikiki', 'Erkek', 'keten gömlek') },
 ];
-
-function getSeenIds(): Set<string> {
-    try { return new Set(JSON.parse(localStorage.getItem('seenItemIds') || '[]')); }
-    catch { return new Set(); }
-}
-
-function markSeen(id: string) {
-    try {
-        const arr = JSON.parse(localStorage.getItem('seenItemIds') || '[]') as string[];
-        if (!arr.includes(id)) {
-            arr.push(id);
-            if (arr.length > MAX_SEEN) arr.splice(0, arr.length - MAX_SEEN);
-            localStorage.setItem('seenItemIds', JSON.stringify(arr));
-        }
-    } catch { /* ignore */ }
-}
 
 const cardVariants = {
     enter: { scale: 0.88, opacity: 0, y: 30 },

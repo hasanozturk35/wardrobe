@@ -25,6 +25,21 @@ export class AiController {
         return this.aiService.analyzeGarmentImage(file);
     }
 
+    @Post('generate-outfit-from-list')
+    async generateOutfitFromList(@Body() body: { items: any[], city: string, style: string, gender: string }) {
+        return this.aiService.generateOutfitFromList(body.items, body.city, body.style, body.gender);
+    }
+
+    @Post('try-on')
+    async virtualTryOn(@Request() req: any, @Body() body: {
+        personImageUrl: string;
+        garmentImageUrl: string;
+        category?: string;
+        brand?: string;
+    }) {
+        return this.aiService.virtualTryOn(req.user.userId, body);
+    }
+
     @Get('job-status/:id')
     async getJobStatus(@Param('id') id: string) {
         return this.aiService.getJobStatus(id);

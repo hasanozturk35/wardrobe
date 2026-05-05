@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Shirt, Layout, Sparkles, Compass, Users, BarChart3, UserCircle, ShieldCheck } from 'lucide-react';
+import { Shirt, Layout, Sparkles, Compass, Users, BarChart3, UserCircle, ShieldCheck, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
     { icon: Users, label: 'Feed', path: '/feed' },
     { icon: BarChart3, label: 'Insights', path: '/analytics' },
     { icon: UserCircle, label: 'Avatar', path: '/avatar/profile' },
+    { icon: User, label: 'Profile', path: '/profile' },
     { icon: ShieldCheck, label: 'Admin', path: '/admin', adminOnly: true },
 ];
 

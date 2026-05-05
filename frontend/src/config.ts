@@ -11,7 +11,7 @@ const CATEGORY_FALLBACKS: Record<string, string> = {
 
 export const getImageUrl = (url?: string, category?: string) => {
     if (!url) return CATEGORY_FALLBACKS[category || ''] ?? CATEGORY_FALLBACKS['default'];
-    if (url.startsWith('static')) return `${API_URL}/${url}`;
-    if (url.startsWith('/static')) return `${API_URL}${url}`;
-    return url;
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+    if (url.startsWith('/')) return `${API_URL}${url}`;
+    return `${API_URL}/${url}`;
 };
