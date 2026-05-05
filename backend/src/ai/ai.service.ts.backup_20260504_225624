@@ -1,0 +1,589 @@
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { PrismaService } from '../infrastructure/prisma/prisma.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { Generate3DModelJob, GenerateAvatarJob } from './dto/ai-jobs.dto';
+import OpenAI from 'openai';
+import Replicate from 'replicate';
+
+@Injectable()
+export class AiService {
+    private readonly logger = new Logger(AiService.name);
+    private openai: OpenAI | null = null;
+    private replicate: Replicate | null = null;
+
+    constructor(
+        private readonly prisma: PrismaService,
+        @Optional() @InjectQueue('ai-tasks') private readonly aiQueue: Queue,
+        @Optional() @InjectQueue('avatar-tasks') private readonly avatarQueue: Queue
+    ) {
+        const openaiKey = process.env.OPENAI_API_KEY;
+        if (openaiKey) {
+            this.openai = new OpenAI({ apiKey: openaiKey });
+        } else {
+            this.logger.warn('OPENAI_API_KEY is missing! AI Stylist will run in mock mode.');
+        }
+
+        const replicateToken = process.env.REPLICATE_API_TOKEN;
+        if (replicateToken) {
+            this.replicate = new Replicate({ auth: replicateToken });
+        } else {
+            this.logger.warn('REPLICATE_API_TOKEN is missing! Virtual Try-On will run in demo mode.');
+        }
+
+        // Keep HuggingFace Space awake (ping every 9 minutes)
+        this.startSpaceKeepAlive();
+    }
+
+    private startSpaceKeepAlive() {
+        const wake = async () => {
+            try {
+                const { Client } = await import('@gradio/client');
+                const hfToken = process.env.HF_TOKEN;
+                await Client.connect('yisol/IDM-VTON', { token: hfToken, status_callback: () => {} } as any);
+                this.logger.log('[Keep-Alive] IDM-VTON Space Gradio connected — GPU awake');
+            } catch (err: any) {
+                this.logger.warn(`[Keep-Alive] IDM-VTON Space wake failed: ${err?.message}`);
+            }
+        };
+        wake(); // wake immediately on startup
+        setInterval(wake, 10 * 60 * 1000); // keep GPU awake every 10 min
+    }
+
+    async getStylistResponse(userId: string, userMessage: string) {
+        // 1. Get user's wardrobe context
+        const wardrobe = await this.prisma.wardrobe.findUnique({
+            where: { userId },
+            include: {
+                items: {
+                    include: { photos: true }
+                }
+            }
+        });
+
+        if (!wardrobe || !wardrobe.items.length) {
+            return {
+                message: "Gardırobun henüz boş görünüyor. Kombin önerebilmem ve sana üzerindeki parçaları doğrudan giydirebilmem (Try-On) için önce birkaç kıyafet eklemelisin! 👗✨",
+                suggestedOutfitIds: []
+            };
+        }
+
+        // 2. Prepare context for AI
+        const wardrobeSummary = wardrobe.items.map(item =>
+            `- ${item.category} (Marka: ${item.brand || 'Bilinmeyen'}), Renk: ${item.colors.join(', ')}, Mevsim: ${item.seasons.join(', ')}`
+        ).join('\n');
+
+        const systemPrompt = `
+Sen profesyonel, elit bir moda stilisti ve "Personal Shopper" (Kişisel Alışveriş Danışmanı) asistanısın. Kullanıcının gardırobundaki gerçek parçalara dayanarak yaratıcı ve şık tavsiyeler verirsin. 
+
+Kullanıcının gardırobu aşağıdadır:
+${wardrobeSummary}
+
+Kritik Görevlerin:
+1. SADECE yukarıdaki gardıropta bulunan parçaların ID'lerini kullanarak kombin öner (suggestedOutfitIds).
+2. "Personal Shopper" modu: Kullanıcının gardırobundaki eksikleri analiz et (örn: çok fazla üstü var ama hiç uygun altı yoksa) ve stilini tamamlayacak "Eksik Parça" önerilerinde bulun. Bu öneriler gardıropta bulunmayan ama kullanıcının alması gereken parçalar olmalı.
+3. Tonun cesaretlendirici, sofistike, elit ve vizyoner olmalı. 
+4. YANITINI MUTLAKA JSON FORMATINDA DÖNMELİSİN.
+
+JSON formatı şu şekilde olmalıdır:
+{
+  "message": "Kullanıcıya gösterilecek stilist mesajı ve alışveriş önerileri...",
+  "suggestedOutfitIds": ["mevcut-gardiroptan-kıyafet-id-1", "..."]
+}
+`;
+
+        // 3. AI Connection
+        if (this.openai) {
+            try {
+                const completion = await this.openai.chat.completions.create({
+                    model: "gpt-3.5-turbo",
+                    response_format: { type: "json_object" },
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userMessage }
+                    ],
+                });
+
+                const aiResponse = JSON.parse(completion.choices[0].message.content || '{"message": "Bir sorun oluştu.", "suggestedOutfitIds": []}');
+                return {
+                    message: aiResponse.message,
+                    suggestedOutfitIds: aiResponse.suggestedOutfitIds || []
+                };
+            } catch (error) {
+                this.logger.error('OpenAI Error:', error);
+                return {
+                    message: "Üzgünüm, şu an bağlantıda bir sorun yaşıyorum ama gardırobunu analiz ettim! Birazdan tekrar deneyelim mi?",
+                    suggestedOutfitIds: []
+                };
+            }
+        }
+
+        // Fallback to Mock Response if no API Key
+        const mockSuggested: string[] = [];
+        const top = wardrobe.items.find(i => ['Üst Giyim', 'Dış Giyim'].includes(i.category));
+        const bottom = wardrobe.items.find(i => ['Alt Giyim'].includes(i.category));
+        const shoes = wardrobe.items.find(i => ['Ayakkabı'].includes(i.category));
+        if (top) mockSuggested.push(top.id);
+        if (bottom) mockSuggested.push(bottom.id);
+        if (shoes) mockSuggested.push(shoes.id);
+
+        const fallbackMessage = `[STİLİST MODU] Harika bir kombin uydurdum! Gardırobundan ${mockSuggested.length} parçayı bir araya getirdim. Aşağıdaki "Hemen Dene" butonuyla avatarında deneyebilirsin. 😉✨`;
+        return {
+            message: fallbackMessage,
+            suggestedOutfitIds: mockSuggested
+        };
+    }
+
+    async analyzeGarmentImage(file: Express.Multer.File) {
+        if (!this.openai) {
+            // Mock Response for MVP without API Key
+            this.logger.log('Mocking Image Analysis...');
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate delay
+            return { category: 'Üst Giyim', colors: ['Siyah'] };
+        }
+
+        try {
+            const base64Image = file.buffer.toString('base64');
+            const mimeType = file.mimetype || 'image/jpeg';
+
+            this.logger.log('Sending image to OpenAI Vision...');
+            const response = await this.openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                    {
+                        role: "system",
+                        content: "Sen bir dijital gardırop asistanısın. Gösterilen kıyafeti analiz et. Yalnızca şu kategorilerden birini seç: 'Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'. Renkleri Türkçe dizi (array) olarak belirt. Yanıtın kesinlikle JSON olmalı. Örn: {\"category\": \"Üst Giyim\", \"colors\": [\"Siyah\", \"Beyaz\"]}"
+                    },
+                    {
+                        role: "user",
+                        content: [
+                            { type: "text", text: "Bu kıyafeti analiz et ve JSON dön." },
+                            { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Image}` } }
+                        ]
+                    }
+                ],
+                response_format: { type: "json_object" }
+            });
+
+            const result = JSON.parse(response.choices[0].message.content || "{}");
+            return result;
+        } catch (error) {
+            this.logger.error("Vision API Error", error);
+            // Fallback to mock on error to maintain UX
+            return { category: 'Üst Giyim', colors: ['Siyah'] };
+        }
+    }
+
+    /**
+     * AI Queue Integration - Offloads heavy 3D Generation to the worker
+     */
+    async generate3DModel(garmentId: string, imageUrl: string) {
+        this.logger.log(`[Queue] Request to queue 3D generation for garment ${garmentId}`);
+        
+        if (!this.aiQueue) {
+            this.logger.warn('Queue is not configured. Redis is unavailable; skipping background job.');
+            return { success: false, message: 'Queue not configured. Install/start Redis to enable background jobs.' };
+        }
+
+        const jobData: Generate3DModelJob = { garmentId, imageUrl };
+        const job = await this.aiQueue.add('generate-3d-model', jobData, {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5000 }
+        });
+
+        return { success: true, jobId: job.id, message: '3D model generation queued' };
+    }
+
+    async generateAvatar(userId: string, selfieUrl: string, bodyPhotoUrl: string) {
+        this.logger.log(`[Queue] Request to queue avatar synthesis for user ${userId}`);
+        
+        if (!this.avatarQueue) {
+            this.logger.warn('Queue is not configured (avatarQueue). Background job skipped.');
+            return { success: false, message: 'Queue not configured.' };
+        }
+
+        const jobData: GenerateAvatarJob = { userId, selfieUrl, bodyPhotoUrl };
+        const job = await this.avatarQueue.add('synthesize-avatar', jobData, {
+            attempts: 2,
+            backoff: { type: 'exponential', delay: 10000 }
+        });
+
+        return { success: true, jobId: job.id, message: 'Avatar synthesis queued' };
+    }
+
+    async getJobStatus(jobId: string) {
+        if (!this.aiQueue) {
+            this.logger.warn('Queue is not configured. getJobStatus unavailable.');
+            return { status: 'unavailable', message: 'Queue not configured.' };
+        }
+
+        const job = await this.aiQueue.getJob(jobId);
+        if (!job) return { status: 'not_found' };
+
+        const state = await job.getState();
+        const progress = job.progress;
+        const result = job.returnvalue;
+
+        return {
+            id: job.id,
+            status: state, // 'active', 'completed', 'failed', 'waiting', 'delayed'
+            progress,
+            result
+        };
+    }
+
+    async generateOutfitFromList(items: any[], city: string, style: string, gender: string) {
+        if (!this.openai) {
+            return { 
+                outfitIds: items.slice(0, 3).map(i => i.id),
+                explanation: `Dolabını analiz ettim. Özellikle seçtiğim bu kombin, ${city} havasına ve ${style} aurasının dinamiklerine kusursuz uyuyor.` 
+            };
+        }
+        
+        try {
+            const itemDescriptions = items.map(i => `ID: ${i.id} | ${i.category}: ${i.brand || 'Bilinmeyen'} (${i.fabric || ''})`).join('\n');
+            const systemPrompt = `Sen profesyonel, elit bir moda stilistisin. Kullanıcının cinsiyeti: ${gender}.
+Şu anki şehir: "${city}" ve stil teması: "${style}".
+Kullanıcının gardırobunda şu parçalar var:
+${itemDescriptions}
+
+Görevin:
+1. Kullanıcının cinsiyetine, şehre ve stile en uygun, renk ve doku olarak birbirini en iyi tamamlayan tam 3 parça seç (Örn: 1 Üst, 1 Alt, 1 Ayakkabı veya Aksesuar).
+2. Neden bu üçlüyü seçtiğini ve "${city}" şehrinin "${style}" tarzına nasıl uyduğunu açıklayan elit, havalı ve sofistike 2-3 cümlelik bir paragraf yaz.
+Yanıtını MUTLAKA aşağıdaki JSON formatında dön:
+{
+  "outfitIds": ["id1", "id2", "id3"],
+  "explanation": "..."
+}`;
+
+            const response = await this.openai.chat.completions.create({
+                model: "gpt-3.5-turbo",
+                messages: [{ role: "system", content: systemPrompt }],
+                response_format: { type: "json_object" }
+            });
+            const result = JSON.parse(response.choices[0].message.content || "{}");
+            
+            let validIds = (result.outfitIds || []).filter((id: string) => items.some(i => i.id === id));
+            if(validIds.length === 0) validIds = items.slice(0,3).map(i=>i.id);
+
+            return { outfitIds: validIds.slice(0,3), explanation: result.explanation || "Kusursuz bir kombin." };
+        } catch (error) {
+            this.logger.error("Generate Outfit Error", error);
+            return { 
+                outfitIds: items.slice(0, 3).map(i => i.id),
+                explanation: "Dolabını analiz ettim. Seçtiğim bu parçalar auranın dinamiklerini kusursuz taşıyor." 
+            };
+        }
+    }
+
+    async getEditorialResponse(userId: string) {
+        const weather = this.getMockWeather();
+        const wardrobe = await this.prisma.wardrobe.findUnique({
+            where: { userId },
+            include: { items: { include: { photos: true } } }
+        });
+
+        const hasItems = wardrobe?.items && wardrobe.items.length > 0;
+        const wardrobeSummary = hasItems 
+            ? wardrobe.items.map(i => `${i.category} (${i.brand})`).join(', ') 
+            : 'Şu an boş';
+        
+        if (!hasItems) {
+            return {
+                headline: "Yeni Bir Başlangıç: Arşivini Oluştur",
+                article: "Dijital gardırobun şu an keşfedilmeyi bekleyen boş bir sayfa gibi. İlk parçanı ekleyerek kişisel stil analizini başlatabilirsin.",
+                suggestedCategory: 'Genel'
+            };
+        }
+
+        const systemPrompt = `
+            Sen elit bir moda editörüsün. Kullanıcının gardırobuna ve şu anki moda başkentlerindeki hava durumuna göre 
+            günlük bir "Style Briefing" (Stil Özeti) hazırla. 
+            Moda başkenti: ${weather.city}, Hava: ${weather.condition}, Sıcaklık: ${weather.temp}°C.
+            Gardırop Özeti: ${wardrobeSummary}
+            Ses tonu: İlham verici, sofistike, elit.
+            JSON formatında dön: {"headline": "...", "article": "...", "suggestedCategory": "...", "recommendations": [{"focus": "...", "description": "..."}]}
+            (En fazla 3 adet recommendation ekle)
+        `;
+
+        if (this.openai) {
+            try {
+                const completion = await this.openai.chat.completions.create({
+                    model: "gpt-3.5-turbo",
+                    response_format: { type: "json_object" },
+                    messages: [{ role: "system", content: systemPrompt }],
+                });
+                return JSON.parse(completion.choices[0].message.content || '{}');
+            } catch (e) {
+                this.logger.error('Editorial AI Error', e);
+            }
+        }
+
+        // Sophisticated, personalized fallback logic if OpenAI is not configured
+        const brandsArray = Array.from(new Set(wardrobe.items.filter(i => i.brand).map(i => i.brand)));
+        const brandsStr = brandsArray.slice(0, 2).join(' ve ');
+        const topItem = wardrobe.items.find((i: any) => i.category.includes('Giyim'));
+        const brandHighlight = topItem?.brand ? topItem.brand + " imzasını taşıyan parçanla" : "seçkin parçalarınla";
+
+        let fallbackArticle = '';
+        if (weather.city === 'Milano') {
+            fallbackArticle = `Milano'nun podyum havası sokaklara taşmışken, arşivindeki ${wardrobe.items.length} benzersiz lüks tasarım ile şehrin avangart ruhuna uyum sağlama zamanı. Özellikle ${brandHighlight} bu ${weather.temp} derecelik ${weather.condition.toLowerCase()} havada neo-klasik ve elit bir silüet çizebilirsin.`;
+        } else if (weather.city === 'Paris') {
+            fallbackArticle = `Parisien şıklık, ${weather.condition.toLowerCase()} bir günde en güçlü silaha dönüşür. Dolabındaki ${brandsStr ? brandsStr + ' gibi ' : ''}kült detayları katmanlayarak, ${weather.temp} derecenin serinliğinde eforsuz ama son derece vurucu bir profil yaratabilirsin.`;
+        } else if (weather.city === 'Londra') {
+            fallbackArticle = `Londra'nın aristokrat ve isyankar tavrı bugün sokaklarda hissediliyor. ${weather.condition.toLowerCase()} esinti, tam da "layering" (katmanlı giyim) sanatı için ideal. Arşivindeki ${wardrobe.items.length} parça ile İngiliz tarzına modern bir lüks yorumu katabilirsin.`;
+        } else {
+            fallbackArticle = `New York'un bitmez tükenmez ritmine ${weather.condition.toLowerCase()} bir gökyüzü eşlik ediyor. ${brandHighlight} yaratacağın cesur bir kontrast, metropol kalabalığı içinde gerçek bir 'statement' (lüks duruş) sergilemeni sağlayacak.`;
+        }
+
+        // Pick 3 items for the mock outfit suggestion
+        const suggestedItems: { id: string; imageUrl: string }[] = [];
+        if (hasItems) {
+            const shuffled = [...wardrobe.items].sort(() => 0.5 - Math.random());
+            shuffled.slice(0, 3).forEach(i => {
+                const photoUrl = i.photos?.[0]?.url || '';
+                suggestedItems.push({ id: i.id, imageUrl: photoUrl });
+            });
+        }
+
+        // Create mock recommendations for the UI
+        const mockRecommendations = [
+            { focus: "Katmanlı Giyim", description: "Farklı dokuları bir araya getirerek derinlik yaratın." },
+            { focus: "Kontrast Renkler", description: "Beklenmedik renk eşleşmeleriyle cesur bir duruş sergileyin." },
+            { focus: "Aksesuar Vurgusu", description: "Minimal bir kombini güçlü aksesuarlarla ön plana çıkarın." }
+        ];
+
+        return {
+            headline: `${weather.city} Ruhu: ${weather.condition.split(' ')[0]} Elegance`,
+            article: fallbackArticle,
+            suggestedCategory: 'Dış Giyim',
+            suggestedItems,
+            recommendations: mockRecommendations,
+            weather: { city: weather.city, condition: weather.condition, temp: weather.temp }
+        };
+    }
+
+    private buildTryOnPrompt(category: string, colors: string[], brand?: string): { prompt: string; negative: string } {
+        const colorStr = colors.length ? colors.join(', ') : 'neutral colored';
+        const brandStr = brand ? `${brand} ` : '';
+        const negative = 'Deformed, blurry, low resolution, unnatural skin tones, mismatched lighting, distorted garment texture, cartoonish, watermark, messy edges, extra limbs, duplicate body parts, text overlays, logos.';
+
+        let prompt: string;
+        switch (category) {
+            case 'Üst Giyim':
+                prompt = `A professional studio fashion photograph of a stylish model wearing a ${colorStr} ${brandStr}shirt or top. Realistic fabric draping on the torso, natural collar and neckline alignment, soft natural lighting from the side, high-fidelity texture detail, clean studio background, fashion photography style, 4k resolution, editorial quality. Photorealistic.`;
+                break;
+            case 'Dış Giyim':
+                prompt = `A fashion lookbook photograph of an elegant model wearing a ${colorStr} ${brandStr}jacket or coat as outer layer. Realistic shoulder fitting, detailed button and zipper textures, consistent fabric weight and drape, natural outdoor or studio lighting, photorealistic, high fashion editorial style, 4k resolution.`;
+                break;
+            case 'Alt Giyim':
+                prompt = `A full body fashion editorial photograph of a model wearing ${colorStr} ${brandStr}trousers or pants. Natural leg silhouettes, realistic fabric folds at the knees and hips, clean studio lighting, sharp and high-definition detail, fashion photography style, 4k resolution.`;
+                break;
+            case 'Ayakkabı':
+                prompt = `A high-quality lifestyle and product photograph of a model wearing ${colorStr} ${brandStr}shoes. Sharp detail on sole, stitching and material texture, natural light reflecting off the surface, minimal clean background, fashion photography style, 4k resolution.`;
+                break;
+            case 'Aksesuar':
+                prompt = `A styled editorial photograph featuring a ${colorStr} ${brandStr}accessory on a model. Detailed material texture, natural soft lighting, high fashion styling, minimal clean background, 4k resolution, photorealistic.`;
+                break;
+            default:
+                prompt = `High-quality fashion editorial photograph of a model wearing a ${colorStr} ${brandStr}garment. Realistic fabric draping, natural lighting, highly detailed texture, 4k resolution, fashion photography style, seamless and professional. Photorealistic.`;
+        }
+
+        return { prompt, negative };
+    }
+
+    async virtualTryOn(userId: string, input: {
+        personImageUrl: string;
+        garmentImageUrl: string;
+        category?: string;
+        brand?: string;
+    }) {
+        const category = input.category || 'Üst Giyim';
+        const garmentDesc = `${input.brand ? input.brand + ' ' : ''}${category}`;
+
+        // ── HuggingFace Nymbo Virtual-Try-On (free) ───────────────────────
+        try {
+            this.logger.log(`[Try-On] Calling HuggingFace Virtual-Try-On for user ${userId}`);
+            const result = await this.runHuggingFaceTryOn(input.personImageUrl, input.garmentImageUrl, garmentDesc);
+            if (result) return { imageUrl: result, mock: false };
+        } catch (error: any) {
+            this.logger.warn('HuggingFace Try-On failed, trying Replicate:', error?.message);
+        }
+
+        // ── Replicate IDM-VTON (paid fallback) ────────────────────────────
+        if (this.replicate) {
+            try {
+                this.logger.log(`[Try-On] Running IDM-VTON via Replicate for user ${userId}`);
+                const output = await this.replicate.run(
+                    'cuuupid/idm-vton:906425dbca90663ff5427624839572cc56ea7d380343d13e2a4c4b09d3f0c30f' as any,
+                    {
+                        input: {
+                            human_img: input.personImageUrl,
+                            garm_img: input.garmentImageUrl,
+                            garment_des: garmentDesc,
+                            is_checked: true,
+                            is_checked_crop: false,
+                            denoise_steps: 30,
+                            seed: 42,
+                        }
+                    }
+                ) as any;
+                const imageUrl = Array.isArray(output) ? output[0] : (output?.output?.[0] ?? output);
+                return { imageUrl, mock: false };
+            } catch (error: any) {
+                this.logger.error('Replicate Try-On Error:', error?.message);
+                return { imageUrl: null, error: 'Try-On modeli çalıştırılamadı: ' + error?.message, mock: false };
+            }
+        }
+
+        // ── DALL-E 3 fallback (no Replicate token) ────────────────────────
+        if (this.openai) {
+            const { prompt, negative } = this.buildTryOnPrompt(category, [], input.brand);
+            try {
+                this.logger.log(`[Try-On] Falling back to DALL-E 3 for category: ${category}`);
+                const response = await this.openai.images.generate({
+                    model: 'dall-e-3',
+                    prompt: `${prompt} Avoid: ${negative}`,
+                    size: '1024x1792',
+                    quality: 'hd',
+                    n: 1,
+                });
+                return { imageUrl: response.data?.[0]?.url ?? null, mock: false };
+            } catch (error: any) {
+                this.logger.error('DALL-E Try-On Error:', error?.message);
+                return { imageUrl: null, error: 'Görsel oluşturulamadı.', mock: false };
+            }
+        }
+
+        // ── Demo mode (no tokens) ─────────────────────────────────────────
+        return {
+            imageUrl: null,
+            mock: true,
+            error: 'API anahtarı bulunamadı. .env dosyasına REPLICATE_API_TOKEN ekleyin.',
+        };
+    }
+
+    private async removeBackground(imageBlob: Blob): Promise<Blob> {
+        const hfToken = process.env.HF_TOKEN;
+        if (!hfToken) return imageBlob;
+        try {
+            this.logger.log('[BG-Remove] Removing background for cleaner try-on...');
+            const arrayBuffer = await imageBlob.arrayBuffer();
+            const response = await globalThis.fetch(
+                'https://api-inference.huggingface.co/models/briaai/RMBG-1.4',
+                {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${hfToken}`, 'Content-Type': 'image/jpeg' },
+                    body: arrayBuffer,
+                    signal: AbortSignal.timeout(30000),
+                }
+            );
+            if (!response.ok) {
+                this.logger.warn(`[BG-Remove] API ${response.status} — using original`);
+                return imageBlob;
+            }
+            const result = await response.arrayBuffer();
+            this.logger.log('[BG-Remove] Background removed — compositing on white...');
+            // Flatten transparency to white so IDM-VTON gets a clean JPEG, not a transparent PNG
+            return await this.compositeOnWhite(new Blob([result], { type: 'image/png' }));
+        } catch (err: any) {
+            this.logger.warn(`[BG-Remove] Failed (${err?.message}) — using original`);
+            return imageBlob;
+        }
+    }
+
+    private async compositeOnWhite(imageBlob: Blob): Promise<Blob> {
+        try {
+            const sharp = (await import('sharp')).default;
+            const buf = Buffer.from(await imageBlob.arrayBuffer());
+            const result = await sharp(buf)
+                .flatten({ background: { r: 255, g: 255, b: 255 } })
+                .resize(768, 1024, { fit: 'contain', background: { r: 255, g: 255, b: 255 } })
+                .jpeg({ quality: 95 })
+                .toBuffer();
+            this.logger.log('[BG-Composite] Person image: white background, 768×1024, JPEG');
+            return new Blob([new Uint8Array(result)], { type: 'image/jpeg' });
+        } catch (err: any) {
+            this.logger.warn(`[BG-Composite] Sharp failed (${err?.message}) — using as-is`);
+            return imageBlob;
+        }
+    }
+
+    private async runHuggingFaceTryOn(personImageUrl: string, garmentImageUrl: string, garmentDesc: string): Promise<string | null> {
+        const { Client } = await import('@gradio/client');
+        const hfToken = process.env.HF_TOKEN;
+
+        const toBlob = async (url: string): Promise<Blob> => {
+            if (url.startsWith('data:')) {
+                const [header, b64] = url.split(',');
+                const mime = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg';
+                const buf = Buffer.from(b64, 'base64');
+                return new Blob([buf], { type: mime });
+            }
+            const res = await globalThis.fetch(url);
+            return res.blob();
+        };
+
+        const [rawPersonBlob, garmentBlob] = await Promise.all([
+            toBlob(personImageUrl),
+            toBlob(garmentImageUrl),
+        ]);
+
+        // Remove background for cleaner person detection
+        const personBlob = await this.removeBackground(rawPersonBlob);
+
+        // Try spaces in order: best quality first
+        const spaces = [
+            { id: 'yisol/IDM-VTON', label: 'IDM-VTON' },
+        ];
+
+        for (const space of spaces) {
+            for (let attempt = 1; attempt <= 2; attempt++) {
+                try {
+                    this.logger.log(`[Try-On] Connecting to ${space.label} (attempt ${attempt}/2)...`);
+                    const client = await Client.connect(space.id, {
+                        token: hfToken,
+                        status_callback: (s: any) => {
+                            this.logger.log(`[Try-On] ${space.label} status: ${s?.status ?? JSON.stringify(s)}`);
+                        },
+                    } as any);
+
+                    const result = await client.predict('/tryon', {
+                        dict: { background: personBlob, layers: [], composite: null },
+                        garm_img: garmentBlob,
+                        garment_des: garmentDesc,
+                        is_checked: true,
+                        is_checked_crop: false,
+                        denoise_steps: 40,
+                        seed: 42,
+                    }) as any;
+
+                    this.logger.log(`[Try-On] ${space.label} result received`);
+                    const data = result?.data;
+                    const first = Array.isArray(data) ? data[0] : data;
+                    if (!first) throw new Error('Empty response');
+
+                    const url = first?.url ?? first?.path ?? (typeof first === 'string' ? first : null);
+                    if (url) return url;
+                    throw new Error('No URL in response');
+                } catch (err: any) {
+                    this.logger.warn(`[Try-On] ${space.label} attempt ${attempt} failed: ${err?.message}`);
+                    if (attempt < 2) await new Promise(r => setTimeout(r, 15000));
+                }
+            }
+            this.logger.warn(`[Try-On] ${space.label} exhausted, trying next space...`);
+        }
+
+        throw new Error('All HuggingFace spaces failed');
+    }
+
+    private getMockWeather() {
+        const cities = [
+            { city: 'Milano', temp: 18, condition: 'Parçalı Bulutlu' },
+            { city: 'Paris', temp: 14, condition: 'Hafif Yağmurlu' },
+            { city: 'Londra', temp: 11, condition: 'Sisli' },
+            { city: 'New York', temp: 22, condition: 'Güneşli' }
+        ];
+        return cities[Math.floor(Math.random() * cities.length)];
+    }
+}

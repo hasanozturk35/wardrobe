@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "../../../.venv"
+		},
+		{
+			"path": "../../../backend"
+		},
+		{
+			"path": "../../../docs"
+		},
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../screenshots"
+		}
+	]
+}
