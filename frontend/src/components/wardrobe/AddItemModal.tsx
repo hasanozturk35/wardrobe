@@ -117,7 +117,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
         }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setLoading(true);
 
@@ -214,7 +214,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
                             {isAnalyzing && (
                                 <div className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full text-[10px] font-bold animate-pulse shadow-lg shadow-indigo-200">
                                     <Sparkles size={12} className="animate-spin" />
-                                    <span className="tracking-widest uppercase">AI Concierge Analysing...</span>
+                                    <span className="tracking-widest uppercase">AI Analiz Ediyor...</span>
                                 </div>
                             )}
                         </div>
@@ -305,10 +305,18 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
                             : 'bg-black text-white hover:scale-[1.02] active:scale-95 shadow-xl shadow-black/10'
                             }`}
                     >
-                        {loading ? 'Yükleniyor...' : (
+                        {loading ? (
+                            <span className="flex items-center gap-2">
+                                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                </svg>
+                                Arka plan kaldırılıyor...
+                            </span>
+                        ) : (
                             <>
                                 <Check className="w-5 h-5" />
-                                Gardırobu Güncelle
+                                Gardıroba Ekle
                             </>
                         )}
                     </button>

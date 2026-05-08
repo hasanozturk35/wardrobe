@@ -15,7 +15,7 @@ export class OutfitsController {
     @Post()
     async createOutfit(
         @Request() req: any,
-        @Body() body: { name?: string, description?: string, coverImage?: string | null, coverUrl?: string | null, items: { garmentItemId: string, slot?: string }[] }
+        @Body() body: { name?: string, description?: string, coverImage?: string | null, coverUrl?: string | null, isTryOn?: boolean, items: { garmentItemId: string, slot?: string }[] }
     ) {
         return this.outfitsService.createOutfit(req.user.userId, body);
     }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Shirt, Sparkles, Box, Users, ChevronRight, ArrowRight } from 'lucide-react';
+import { Shirt, Sparkles, Box, Users, ChevronRight } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
     const navigate = useNavigate();
@@ -60,58 +60,73 @@ const LandingPage: React.FC = () => {
                 </div>
             </nav>
 
-            {/* Immersive Hero Section */}
-            <main className="relative z-10 pt-48 lg:pt-64 px-8 lg:px-24">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-24 items-center">
-                    <div className="lg:col-span-12 text-center lg:text-left">
-                        <motion.div
-                            initial={{ opacity: 0, x: -30 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="flex items-center gap-4 mb-12 justify-center lg:justify-start"
-                        >
-                            <span className="w-16 h-[1px] bg-black opacity-20" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.6em] text-gray-400 font-inter">Paris • Milan • Tokyo</span>
-                        </motion.div>
-                        
-                        <motion.h1 
-                            initial={{ opacity: 0, scale: 0.98 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 1.5 }}
-                            className="text-8xl md:text-[14rem] font-serif font-light leading-[0.85] tracking-tightest text-[#1a1a1a] mb-20"
-                        >
-                            Kişisel Stili <br />
-                            <span className="italic font-normal text-gray-300">Yeniden <br /> Tanımla.</span>
-                        </motion.h1>
-
-                        <div className="flex flex-col lg:flex-row gap-20 items-end justify-between">
-                            <motion.p 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 1, delay: 0.6 }}
-                                className="text-2xl font-serif italic max-w-xl leading-relaxed text-gray-500"
-                            >
-                                Wardrobe, gardırobunuzu yapay zeka ile profesyonel bir dijital arşive dönüştürür. 3D Virtual Try-On ve kişiselleştirilmiş AI analizi ile modanın geleceğine bugün sahip olun.
-                            </motion.p>
-                            
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ duration: 1.2, delay: 0.8 }}
-                            >
-                                <button 
-                                    onClick={() => navigate('/auth')}
-                                    className="w-56 h-56 rounded-full border border-black/10 bg-black text-white p-4 flex flex-col items-center justify-center gap-4 hover:scale-110 active:scale-95 transition-all shadow-3xl hover:bg-white hover:text-black hover:border-black group relative overflow-hidden"
-                                >
-                                    <div className="absolute inset-x-0 bottom-0 h-0 bg-white group-hover:h-full transition-all duration-500" />
-                                    <div className="relative z-10 flex flex-col items-center gap-4">
-                                        <ArrowRight size={32} strokeWidth={1} className="group-hover:translate-x-2 transition-transform" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-center">Keşfetmeye <br />Başla</span>
-                                    </div>
-                                </button>
-                            </motion.div>
-                        </div>
-                    </div>
+            {/* Full-Screen Video Hero */}
+            <section className="relative w-full h-screen overflow-hidden">
+                <video
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="absolute inset-0 w-full h-full object-cover"
+                    src="/hero-video.mp4"
+                />
+                <div className="absolute inset-0 bg-black/50" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white px-8">
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 1, delay: 0.4 }}
+                        className="flex items-center gap-4 mb-8"
+                    >
+                        <span className="w-12 h-[1px] bg-white/40" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.6em] text-white/60">Paris • Milan • Tokyo</span>
+                        <span className="w-12 h-[1px] bg-white/40" />
+                    </motion.div>
+                    <motion.h1
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 1.5, delay: 0.2 }}
+                        className="text-7xl md:text-[11rem] font-serif font-light leading-[0.88] tracking-tightest mb-12"
+                    >
+                        Moda <br />
+                        <span className="italic font-normal text-white/70">Yapay Zeka <br />Devrimi.</span>
+                    </motion.h1>
+                    <motion.p
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 1, delay: 0.8 }}
+                        className="text-lg md:text-2xl font-serif italic text-white/60 max-w-xl leading-relaxed mb-16"
+                    >
+                        Gardırobunuzu yapay zeka ile profesyonel bir dijital arşive dönüştürün.
+                    </motion.p>
+                    <motion.button
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 1, delay: 1.1 }}
+                        onClick={() => navigate('/auth')}
+                        className="px-14 py-5 border border-white/40 text-white text-[10px] font-black uppercase tracking-[0.5em] hover:bg-white hover:text-black transition-all duration-500 rounded-full"
+                    >
+                        Keşfetmeye Başla
+                    </motion.button>
                 </div>
+                {/* Scroll down indicator */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 1.8 }}
+                    className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/40"
+                >
+                    <span className="text-[8px] font-black uppercase tracking-[0.5em]">Aşağı Kaydır</span>
+                    <motion.div
+                        animate={{ y: [0, 8, 0] }}
+                        transition={{ repeat: Infinity, duration: 1.5 }}
+                        className="w-[1px] h-10 bg-white/30"
+                    />
+                </motion.div>
+            </section>
+
+            {/* Exhibit Section */}
+            <main className="relative z-10 pt-32 px-8 lg:px-24">
 
                 {/* Hero Exhibit Card */}
                 <motion.div 

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { ConfigService } from '@nestjs/config';
@@ -11,8 +11,6 @@ import { MailService } from '../../mail/mail.service';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -27,7 +25,7 @@ export class AuthService {
       this.dbLogger.log(`Registration attempt: ${registerDto.email}`, 'Auth');
       const existingUser = await this.usersService.findByEmail(registerDto.email);
       if (existingUser) {
-        throw new UnauthorizedException('Email already exists');
+        throw new UnauthorizedException('Bu e-posta adresi zaten kayıtlı.');
       }
 
       const hashedPassword = await bcrypt.hash(registerDto.password, 10);
@@ -53,7 +51,7 @@ export class AuthService {
     try {
       const user = await this.usersService.findByEmail(loginDto.email);
       if (!user || !(await bcrypt.compare(loginDto.password, user.passwordHash))) {
-        throw new UnauthorizedException('Invalid credentials');
+        throw new UnauthorizedException('E-posta veya şifre hatalı.');
       }
 
       const tokens = await this.issueNewSession(user.id, user.email, user.role, ip, ua);
@@ -98,7 +96,7 @@ export class AuthService {
   async refreshTokens(refreshToken: string, ip?: string, ua?: string) {
     try {
       const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'refreshSecret123';
-      const payload = await this.jwtService.verifyAsync(refreshToken, { secret: refreshSecret });
+      await this.jwtService.verifyAsync(refreshToken, { secret: refreshSecret });
       
       const tokenHash = this.hashToken(refreshToken);
       const session = await this.prisma.refreshSession.findUnique({
@@ -112,7 +110,7 @@ export class AuthService {
             await this.revokeAllUserSessions(session.userId);
             this.dbLogger.warn(`Potential Refresh Token Reuse Attack detected for user ${session.userId}. All sessions revoked.`, 'Auth');
         }
-        throw new UnauthorizedException('Invalid or expired refresh token');
+        throw new UnauthorizedException('Oturum süresi doldu, lütfen tekrar giriş yap.');
       }
 
       // Rotate: Delete old session and issue new ones
@@ -120,7 +118,7 @@ export class AuthService {
       
       return this.issueNewSession(session.user.id, session.user.email, session.user.role, ip, ua);
     } catch (error) {
-      throw new UnauthorizedException('Session verification failed');
+      throw new UnauthorizedException('Oturum doğrulaması başarısız.');
     }
   }
 
@@ -185,12 +183,8 @@ export class AuthService {
     expires.setHours(expires.getHours() + 1);
     await this.usersService.updateResetToken(user.id, token, expires);
 
-    try {
-      await this.mailService.sendPasswordReset(email, token);
-      this.dbLogger.log(`Password reset email sent to ${email}`, 'Auth');
-    } catch (mailError) {
-      this.logger.error('Mail gönderilemedi:', mailError);
-    }
+    await this.mailService.sendPasswordReset(email, token);
+    this.dbLogger.log(`Password reset email sent to ${email}`, 'Auth');
 
     return { message: 'Eğer bu e-posta kayıtlıysa sıfırlama linki gönderildi.' };
   }
@@ -198,7 +192,7 @@ export class AuthService {
   async resetPassword(resetDto: ResetPasswordDto) {
     const user = await this.usersService.findByResetToken(resetDto.token);
     if (!user || !user.resetTokenExpires || user.resetTokenExpires < new Date()) {
-      throw new UnauthorizedException('Invalid or expired reset token');
+      throw new UnauthorizedException('Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş.');
     }
     const hashedPassword = await bcrypt.hash(resetDto.newPassword, 10);
     await this.usersService.updatePassword(user.id, hashedPassword);
@@ -208,7 +202,7 @@ export class AuthService {
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException('User not found');
+    if (!user) throw new UnauthorizedException('Kullanıcı bulunamadı.');
 
     const passwordMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
     if (!passwordMatch) throw new UnauthorizedException('Mevcut şifre hatalı');

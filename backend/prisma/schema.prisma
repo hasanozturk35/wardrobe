@@ -108,6 +108,7 @@ model Outfit {
   isPublic     Boolean  @default(false)
   productLinks Json?
   occasion     String?
+  isTryOn      Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

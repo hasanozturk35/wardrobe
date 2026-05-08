@@ -5,23 +5,44 @@ import { Queue } from 'bullmq';
 import { Generate3DModelJob, GenerateAvatarJob } from './dto/ai-jobs.dto';
 import OpenAI from 'openai';
 import Replicate from 'replicate';
+import Anthropic from '@anthropic-ai/sdk';
 
 @Injectable()
 export class AiService {
     private readonly logger = new Logger(AiService.name);
     private openai: OpenAI | null = null;
+    private anthropic: Anthropic | null = null;
     private replicate: Replicate | null = null;
+    private isGroq = false;
 
     constructor(
         private readonly prisma: PrismaService,
         @Optional() @InjectQueue('ai-tasks') private readonly aiQueue: Queue,
         @Optional() @InjectQueue('avatar-tasks') private readonly avatarQueue: Queue
     ) {
-        const openaiKey = process.env.OPENAI_API_KEY;
-        if (openaiKey) {
-            this.openai = new OpenAI({ apiKey: openaiKey });
+        // Groq — free, fast, Llama 3.3 70B (primary)
+        const groqKey = process.env.GROQ_API_KEY;
+        if (groqKey) {
+            this.openai = new OpenAI({ apiKey: groqKey, baseURL: 'https://api.groq.com/openai/v1' });
+            this.isGroq = true;
+            this.logger.log('AI: Groq (Llama 3.3 70B) aktif.');
         } else {
-            this.logger.warn('OPENAI_API_KEY is missing! AI Stylist will run in mock mode.');
+            // OpenAI — fallback
+            const openaiKey = process.env.OPENAI_API_KEY;
+            if (openaiKey) {
+                this.openai = new OpenAI({ apiKey: openaiKey });
+                this.logger.log('AI: OpenAI aktif.');
+            }
+        }
+
+        const anthropicKey = process.env.ANTHROPIC_API_KEY;
+        if (anthropicKey) {
+            this.anthropic = new Anthropic({ apiKey: anthropicKey });
+            this.logger.log('AI: Anthropic Claude aktif.');
+        }
+
+        if (!groqKey && !process.env.OPENAI_API_KEY && !anthropicKey) {
+            this.logger.warn('Hiçbir AI key bulunamadı. GROQ_API_KEY ekle (ücretsiz: console.groq.com)');
         }
 
         const replicateToken = process.env.REPLICATE_API_TOKEN;
@@ -49,7 +70,12 @@ export class AiService {
         setInterval(wake, 10 * 60 * 1000); // keep GPU awake every 10 min
     }
 
-    async getStylistResponse(userId: string, userMessage: string) {
+    async getStylistResponse(
+        userId: string,
+        userMessage: string,
+        imageBase64?: string,
+        history?: { role: 'user' | 'assistant'; content: string }[]
+    ) {
         // 1. Get user's wardrobe context
         const wardrobe = await this.prisma.wardrobe.findUnique({
             where: { userId },
@@ -60,75 +86,132 @@ export class AiService {
             }
         });
 
-        if (!wardrobe || !wardrobe.items.length) {
-            return {
-                message: "Gardırobun henüz boş görünüyor. Kombin önerebilmem ve sana üzerindeki parçaları doğrudan giydirebilmem (Try-On) için önce birkaç kıyafet eklemelisin! 👗✨",
-                suggestedOutfitIds: []
-            };
-        }
+        const wardrobeEmpty = !wardrobe || !wardrobe.items.length;
 
         // 2. Prepare context for AI
-        const wardrobeSummary = wardrobe.items.map(item =>
-            `- ${item.category} (Marka: ${item.brand || 'Bilinmeyen'}), Renk: ${item.colors.join(', ')}, Mevsim: ${item.seasons.join(', ')}`
-        ).join('\n');
+        const wardrobeSummary = wardrobeEmpty
+            ? '(Gardırop boş)'
+            : wardrobe.items.map(item =>
+                `- ID:${item.id} | ${item.category} | Marka: ${item.brand || 'Bilinmeyen'} | Renk: ${item.colors.join(', ')} | Mevsim: ${item.seasons.join(', ')}`
+              ).join('\n');
 
-        const systemPrompt = `
-Sen profesyonel, elit bir moda stilisti ve "Personal Shopper" (Kişisel Alışveriş Danışmanı) asistanısın. Kullanıcının gardırobundaki gerçek parçalara dayanarak yaratıcı ve şık tavsiyeler verirsin. 
+        const hasImage = !!imageBase64;
+        const systemPrompt = `Sen dünyanın en iyi kişisel stil danışmanısın. Adın "Stil". Türkçe konuşuyorsun ve her cevabında gerçek bir uzman gibi davranıyorsun.
 
-Kullanıcının gardırobu aşağıdadır:
+KULLANICININ DOLABI:
 ${wardrobeSummary}
 
-Kritik Görevlerin:
-1. SADECE yukarıdaki gardıropta bulunan parçaların ID'lerini kullanarak kombin öner (suggestedOutfitIds).
-2. "Personal Shopper" modu: Kullanıcının gardırobundaki eksikleri analiz et (örn: çok fazla üstü var ama hiç uygun altı yoksa) ve stilini tamamlayacak "Eksik Parça" önerilerinde bulun. Bu öneriler gardıropta bulunmayan ama kullanıcının alması gereken parçalar olmalı.
-3. Tonun cesaretlendirici, sofistike, elit ve vizyoner olmalı. 
-4. YANITINI MUTLAKA JSON FORMATINDA DÖNMELİSİN.
+SENİN DERİN BİLGİN:
+• Renk teorisi: hangi renkler tamamlar (lacivert+bej, haki+beyaz, bordo+gri), hangileri çatışır, ton uyumu
+• Doku ve kumaş: mat+parlak kombinasyonu, keten yazın neden nefes aldırır, kadife kışın nasıl kullanılır
+• Kesim ve vücut: oversized üst+slim alt dengesi, yüksek bel bacağı uzatır, omuz genişliği nasıl dengelenir
+• Türk moda kültürü: Nişantaşı minimalizmi, Karaköy alternatif karışımı, Boğaz kenarı smart-casual, İzmir rahat şıklığı
+• Kapsül gardırop felsefesi: 10 parçayla 30 kombin kuralı, temel renk paleti, signature parça kavramı
+• Occasion dressing: sabah toplantısı vs akşam yemeği vs hafta sonu brunch vs gece çıkışı
+• Marka rehberi: Mavi'nin en iyi kesimi hangisi, Zara'da neye bakılır, COS minimalizmi, Massimo Dutti klasiği
+• Trendler ve zamansızlık: neyin geçici neyin kalıcı olduğunu bilirsin${hasImage ? '\n• Kullanıcı fotoğraf gönderdi: görseli oku, kıyafet türü/renk/stil hakkında spesifik yorum yap, dolabından uyumlu parçaları göster' : ''}
 
-JSON formatı şu şekilde olmalıdır:
-{
-  "message": "Kullanıcıya gösterilecek stilist mesajı ve alışveriş önerileri...",
-  "suggestedOutfitIds": ["mevcut-gardiroptan-kıyafet-id-1", "..."]
-}
-`;
+NASIL KONUŞURSUN:
+• Cesur ve kesin: "Bu yakışır" değil, "Bu siyah tişört oversized giyildiğinde, beli kapatacak uzunlukta durduğunda en güçlü halini alır"
+• Neden'i açıklarsın: sadece ne giyeceğini değil, neden o kombinasyonun işe yaradığını söylersin
+• Bazen provoke edersin: "Çoğu insan siyah-siyah karışımından kaçınır ama sen yapma — mat ve parlak dokular harika gider"
+• Eksikleri söylersin ama zalim değilsin: "Dolabında temel bir bej pantolon yok, bu bir parçayla kombin sayını ikiye katlardin"
+• 2-4 cümle yaz, sıkıcı olma, her cümle değer taşısın
 
-        // 3. AI Connection
-        if (this.openai) {
+MESAJ TÜRÜNE GÖRE DAVRAN:
+• Selamlama/sohbet ("merhaba", "nasılsın", "hey" vb.) → sadece samimi karşılık ver, suggestedOutfitIds BOŞ bırak []
+• Stil/kombin sorusu → dolabı analiz et, spesifik öner, ilgili parçaları suggestedOutfitIds'e ekle
+• Genel soru (trend, renk, marka vb.) → cevap ver, dolap SADECE bağlantılıysa dahil et
+
+SADECE JSON formatında cevap ver, başka hiçbir şey yazma:
+{"message": "cevap buraya — samimi, spesifik, ilham verici", "suggestedOutfitIds": ["SADECE-GERCEK-DOLAP-ID"]}
+
+KRİTİK: suggestedOutfitIds'e YALNIZCA dolap listesindeki gerçek ID'leri yaz. Hiçbir ID'yi uydurma veya tahmin etme. Sohbet mesajlarında kesinlikle [] döndür.`;
+
+        // 3. Claude (Anthropic) — primary
+        if (this.anthropic) {
             try {
-                const completion = await this.openai.chat.completions.create({
-                    model: "gpt-3.5-turbo",
-                    response_format: { type: "json_object" },
+                const userContent: any[] = [{ type: 'text', text: userMessage || 'Dolabımı analiz et ve bugün için bir kombin öner.' }];
+                if (imageBase64) {
+                    userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } });
+                }
+
+                const anthropicHistory = (history || []).slice(-8).map(h => ({
+                    role: h.role as 'user' | 'assistant',
+                    content: h.content
+                }));
+
+                const response = await this.anthropic.messages.create({
+                    model: 'claude-haiku-4-5-20251001',
+                    max_tokens: 700,
+                    system: systemPrompt,
                     messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: userMessage }
+                        ...anthropicHistory,
+                        { role: 'user', content: imageBase64 ? userContent : (userMessage || 'Dolabımı analiz et.') }
                     ],
                 });
 
-                const aiResponse = JSON.parse(completion.choices[0].message.content || '{"message": "Bir sorun oluştu.", "suggestedOutfitIds": []}');
-                return {
-                    message: aiResponse.message,
-                    suggestedOutfitIds: aiResponse.suggestedOutfitIds || []
-                };
+                const raw = (response.content[0] as any).text || '';
+                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { message: raw, suggestedOutfitIds: [] };
+                return { message: parsed.message, suggestedOutfitIds: parsed.suggestedOutfitIds || [] };
             } catch (error) {
-                this.logger.error('OpenAI Error:', error);
-                return {
-                    message: "Üzgünüm, şu an bağlantıda bir sorun yaşıyorum ama gardırobunu analiz ettim! Birazdan tekrar deneyelim mi?",
-                    suggestedOutfitIds: []
-                };
+                this.logger.error('Anthropic Chat Error:', error);
             }
         }
 
-        // Fallback to Mock Response if no API Key
+        // 4. OpenAI — fallback
+        if (this.openai) {
+            try {
+                const userContent: any[] = [{ type: 'text', text: userMessage || 'Dolabımı analiz et.' }];
+                if (imageBase64) {
+                    userContent.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: 'low' } });
+                }
+
+                const isGroq = !!(process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY);
+                const model = isGroq ? 'llama-3.3-70b-versatile' : (imageBase64 ? 'gpt-4o' : 'gpt-4o-mini');
+                const msgContent = (imageBase64 && !isGroq) ? userContent : (userMessage || 'Dolabımı analiz et ve bugün için en iyi kombini öner.');
+
+                // Build conversation history (last 8 messages for context)
+                const historyMessages = (history || []).slice(-8).map(h => ({
+                    role: h.role as 'user' | 'assistant',
+                    content: h.content
+                }));
+
+                const completion = await this.openai.chat.completions.create({
+                    model,
+                    ...(isGroq ? {} : { response_format: { type: 'json_object' } }),
+                    max_tokens: 700,
+                    temperature: 0.85,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...historyMessages,
+                        { role: 'user', content: msgContent as any }
+                    ],
+                });
+
+                const raw = completion.choices[0].message.content || '';
+                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                const aiResponse = jsonMatch ? JSON.parse(jsonMatch[0]) : { message: raw, suggestedOutfitIds: [] };
+                return { message: aiResponse.message, suggestedOutfitIds: aiResponse.suggestedOutfitIds || [] };
+            } catch (error) {
+                this.logger.error('OpenAI/Groq Chat Error:', error);
+            }
+        }
+
+        // 5. No API key — informative mock
+        if (wardrobeEmpty) {
+            return { message: 'Gardırobu henüz boş. Birkaç parça ekleyince sana gerçek kombin önerileri yapabileceğim.', suggestedOutfitIds: [] };
+        }
         const mockSuggested: string[] = [];
         const top = wardrobe.items.find(i => ['Üst Giyim', 'Dış Giyim'].includes(i.category));
-        const bottom = wardrobe.items.find(i => ['Alt Giyim'].includes(i.category));
-        const shoes = wardrobe.items.find(i => ['Ayakkabı'].includes(i.category));
+        const bottom = wardrobe.items.find(i => i.category === 'Alt Giyim');
+        const shoes = wardrobe.items.find(i => i.category === 'Ayakkabı');
         if (top) mockSuggested.push(top.id);
         if (bottom) mockSuggested.push(bottom.id);
         if (shoes) mockSuggested.push(shoes.id);
-
-        const fallbackMessage = `[STİLİST MODU] Harika bir kombin uydurdum! Gardırobundan ${mockSuggested.length} parçayı bir araya getirdim. Aşağıdaki "Hemen Dene" butonuyla avatarında deneyebilirsin. 😉✨`;
         return {
-            message: fallbackMessage,
+            message: 'Stil asistanı şu an aktif değil. ANTHROPIC_API_KEY veya OPENAI_API_KEY değerini .env dosyasına ekle.',
             suggestedOutfitIds: mockSuggested
         };
     }
@@ -231,47 +314,159 @@ JSON formatı şu şekilde olmalıdır:
         };
     }
 
-    async generateOutfitFromList(items: any[], city: string, style: string, gender: string) {
-        if (!this.openai) {
-            return { 
-                outfitIds: items.slice(0, 3).map(i => i.id),
-                explanation: `Dolabını analiz ettim. Özellikle seçtiğim bu kombin, ${city} havasına ve ${style} aurasının dinamiklerine kusursuz uyuyor.` 
-            };
-        }
-        
+    private async fetchCityWeather(city: string): Promise<{ temp: number; feelsLike: number; description: string; isRainy: boolean; windKmph: number }> {
         try {
-            const itemDescriptions = items.map(i => `ID: ${i.id} | ${i.category}: ${i.brand || 'Bilinmeyen'} (${i.fabric || ''})`).join('\n');
-            const systemPrompt = `Sen profesyonel, elit bir moda stilistisin. Kullanıcının cinsiyeti: ${gender}.
-Şu anki şehir: "${city}" ve stil teması: "${style}".
-Kullanıcının gardırobunda şu parçalar var:
+            const url = `https://wttr.in/${encodeURIComponent(city)}?format=j1`;
+            const res = await fetch(url, { signal: AbortSignal.timeout(5000) } as any);
+            if (!res.ok) throw new Error('wttr.in failed');
+            const data = await res.json() as any;
+            const c = data.current_condition[0];
+            const desc: string = c.weatherDesc[0].value;
+            return {
+                temp: parseInt(c.temp_C),
+                feelsLike: parseInt(c.FeelsLikeC),
+                description: desc,
+                isRainy: /rain|drizzle|snow|sleet|shower/i.test(desc),
+                windKmph: parseInt(c.windspeedKmph),
+            };
+        } catch {
+            const month = new Date().getMonth();
+            const isWinter = month < 2 || month === 11;
+            const isSummer = month >= 5 && month <= 8;
+            return { temp: isWinter ? 6 : isSummer ? 28 : 16, feelsLike: isWinter ? 3 : isSummer ? 27 : 14, description: isWinter ? 'Soğuk ve bulutlu' : isSummer ? 'Güneşli' : 'Parçalı bulutlu', isRainy: false, windKmph: 10 };
+        }
+    }
+
+    async generateOutfitFromList(items: any[], city: string, style: string, gender: string) {
+        const weather = await this.fetchCityWeather(city);
+        const needsOuterwear = weather.temp < 18 || weather.feelsLike < 15;
+        const outerwearRule = weather.temp < 10
+            ? `Dış giyim ZORUNLU — ${weather.temp}°C çok soğuk, kesinlikle ceket/mont giyin`
+            : weather.temp < 18
+                ? `Dış giyim ÖNERİLİR — ${weather.temp}°C serin, hafif ceket ideal`
+                : weather.temp < 24
+                    ? `Dış giyim OPSİYONEL — ${weather.temp}°C ılık, tercihe bırakılır`
+                    : `Dış giyim GEREKSIZ — ${weather.temp}°C sıcak, üst giyim yeterli`;
+
+        const fallbackResult = () => {
+            const tops    = items.filter(i => i.category === 'Üst Giyim');
+            const bottoms = items.filter(i => i.category === 'Alt Giyim');
+            const shoes   = items.filter(i => i.category === 'Ayakkabı');
+            const outer   = items.filter(i => i.category === 'Dış Giyim');
+            const acc     = items.filter(i => i.category === 'Aksesuar');
+            const pick = (arr: any[]) => arr.length ? arr[0] : null;
+            const top  = pick(tops)    || items[0];
+            const bot  = pick(bottoms) || items[1] || items[0];
+            const shoe = pick(shoes)   || items[2] || items[0];
+            const out  = needsOuterwear ? pick(outer) : null;
+            const ac   = pick(acc);
+            const selectedItems = [top, bot, shoe, out, ac].filter(Boolean);
+            const uniqueItems = Array.from(new Map(selectedItems.map(i => [i.id, i])).values());
+            const categoryMap: Record<string,string> = {};
+            if (top)  categoryMap['üstGiyim']  = top.id;
+            if (bot)  categoryMap['altGiyim']  = bot.id;
+            if (shoe) categoryMap['ayakkabı']   = shoe.id;
+            if (out)  categoryMap['dışGiyim']   = out.id;
+            if (ac)   categoryMap['aksesuar']   = ac.id;
+            return {
+                outfitIds: uniqueItems.map(i => i.id),
+                categoryMap,
+                wearOuterwear: needsOuterwear,
+                weather: { temp: weather.temp, feelsLike: weather.feelsLike, description: weather.description, isRainy: weather.isRainy },
+                weatherNote: `${city} bugün ${weather.temp}°C — ${weather.description}`,
+                explanation: `Dolabını analiz ettim. Bugün ${city}'da ${weather.temp}°C hava için seçtiğim bu parçalar ${style} aurasını mükemmel yansıtıyor.`,
+            };
+        };
+
+        if (!this.openai) return fallbackResult();
+
+        try {
+            const itemDescriptions = items.map(i => {
+                const colors  = Array.isArray(i.colors)  && i.colors.length  ? i.colors.join(', ')  : 'renk belirtilmemiş';
+                const seasons = Array.isArray(i.seasons) && i.seasons.length ? i.seasons.join(', ') : 'tüm mevsim';
+                return `ID:${i.id} | ${i.category} | ${i.brand || '?'} | Renk: ${colors} | Mevsim: ${seasons}`;
+            }).join('\n');
+
+            const systemPrompt = `Sen dünyanın en iyi kişisel moda stilistisin. Kullanıcının gardırobundan BUGÜNE ÖZEL, HAVA DURUMUNA GÖRE mükemmel bir kategori bazlı kombin seç.
+
+KULLANICI:
+- Cinsiyet: ${gender}
+- Şehir: ${city}
+- Stil teması: ${style}
+
+BUGÜNKÜ HAVA DURUMU - ${city}:
+- Sıcaklık: ${weather.temp}°C (hissedilen: ${weather.feelsLike}°C)
+- Durum: ${weather.description}
+- Rüzgar: ${weather.windKmph} km/h
+- Yağış: ${weather.isRainy ? 'VAR' : 'Yok'}
+- Dış giyim kararı: ${outerwearRule}
+
+GARDIROPTAKİ PARÇALAR:
 ${itemDescriptions}
 
-Görevin:
-1. Kullanıcının cinsiyetine, şehre ve stile en uygun, renk ve doku olarak birbirini en iyi tamamlayan tam 3 parça seç (Örn: 1 Üst, 1 Alt, 1 Ayakkabı veya Aksesuar).
-2. Neden bu üçlüyü seçtiğini ve "${city}" şehrinin "${style}" tarzına nasıl uyduğunu açıklayan elit, havalı ve sofistike 2-3 cümlelik bir paragraf yaz.
-Yanıtını MUTLAKA aşağıdaki JSON formatında dön:
+KOMBİN KURALLARIN:
+1. CİNSİYET: Sadece ${gender} cinsiyetine uygun parça seç. Unisex her cins için geçerli.
+2. HAVA DURUMU: Sıcaklığa göre dış giyim kararını uygula. ${needsOuterwear ? 'Dış Giyim EKLE.' : 'Dış Giyim ekleme.'}
+3. RENK UYUMU: Analog (bej+krem+kahve), tamamlayıcı (lacivert+bej, haki+beyaz), monokromatik. Çakışan parlak renklerden kaçın.
+4. KATEGORİ DENGESİ: Her kategoriden EN FAZLA 1 parça. Üst+Alt+Ayakkabı temel üçlüdür.
+5. STİL TUTARLIĞI: "${style}" temasına uygun, casual/formal karışımı olmayan bir bütün.
+
+AÇIKLAMA: Seçtiğin kombinin neden renk, doku ve stil açısından birbirini tamamladığını — ve ${city}'daki bugünkü ${weather.temp}°C havayla ${style} aurasıyla nasıl örtüştüğünü — 2 cümlede özgüvenli ve spesifik anlat.
+
+SADECE GEÇERLİ ITEM ID'LERİ KULLAN. Listedeki olmayan ID verme.
+
+SADECE JSON dön:
 {
-  "outfitIds": ["id1", "id2", "id3"],
-  "explanation": "..."
+  "outfit": {
+    "üstGiyim": "exact_id_from_list or null",
+    "altGiyim": "exact_id_from_list or null",
+    "dışGiyim": "exact_id_from_list or null",
+    "aksesuar": "exact_id_from_list or null",
+    "ayakkabı": "exact_id_from_list or null"
+  },
+  "wearOuterwear": true_or_false,
+  "explanation": "2 cümle açıklama"
 }`;
 
+            const model = this.isGroq ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini';
             const response = await this.openai.chat.completions.create({
-                model: "gpt-3.5-turbo",
-                messages: [{ role: "system", content: systemPrompt }],
-                response_format: { type: "json_object" }
+                model,
+                messages: [{ role: 'user', content: systemPrompt }],
+                response_format: { type: 'json_object' },
+                temperature: 0.3,
             });
-            const result = JSON.parse(response.choices[0].message.content || "{}");
-            
-            let validIds = (result.outfitIds || []).filter((id: string) => items.some(i => i.id === id));
-            if(validIds.length === 0) validIds = items.slice(0,3).map(i=>i.id);
 
-            return { outfitIds: validIds.slice(0,3), explanation: result.explanation || "Kusursuz bir kombin." };
-        } catch (error) {
-            this.logger.error("Generate Outfit Error", error);
-            return { 
-                outfitIds: items.slice(0, 3).map(i => i.id),
-                explanation: "Dolabını analiz ettim. Seçtiğim bu parçalar auranın dinamiklerini kusursuz taşıyor." 
+            const raw = JSON.parse(response.choices[0].message.content || '{}');
+            const outfit: Record<string,string> = raw.outfit || {};
+
+            // Validate every ID exists in items list
+            const validId = (id: any) => typeof id === 'string' && items.some(i => i.id === id);
+            const categoryMap: Record<string, string> = {};
+            if (validId(outfit.üstGiyim))  categoryMap['üstGiyim']  = outfit.üstGiyim;
+            if (validId(outfit.altGiyim))  categoryMap['altGiyim']  = outfit.altGiyim;
+            if (validId(outfit.ayakkabı))  categoryMap['ayakkabı']  = outfit.ayakkabı;
+            if (validId(outfit.dışGiyim))  categoryMap['dışGiyim']  = outfit.dışGiyim;
+            if (validId(outfit.aksesuar))  categoryMap['aksesuar']  = outfit.aksesuar;
+
+            const outfitIds = Object.values(categoryMap);
+            if (outfitIds.length === 0) return fallbackResult();
+
+            // Pad to 3 unique items if needed (for collage display)
+            const usedIds = new Set(outfitIds);
+            const extras = items.filter(i => !usedIds.has(i.id));
+            const allIds = [...outfitIds, ...extras.map(i => i.id)].slice(0, 3);
+
+            return {
+                outfitIds: allIds,
+                categoryMap,
+                wearOuterwear: raw.wearOuterwear ?? needsOuterwear,
+                weather: { temp: weather.temp, feelsLike: weather.feelsLike, description: weather.description, isRainy: weather.isRainy },
+                weatherNote: `${city} bugün ${weather.temp}°C — ${weather.description}`,
+                explanation: raw.explanation || 'Kusursuz bir kombin.',
             };
+        } catch (error) {
+            this.logger.error('Generate Outfit Error', error);
+            return fallbackResult();
         }
     }
 

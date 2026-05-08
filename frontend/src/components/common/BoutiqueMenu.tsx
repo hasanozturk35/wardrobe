@@ -124,7 +124,7 @@ export const BoutiqueMenu: React.FC = () => {
                                         <LogOut size={24} strokeWidth={1} />
                                     </div>
                                     <div className="py-2">
-                                        <h3 className="text-2xl font-serif text-gray-400 group-hover:text-rose-500 transition-colors">Sign Out</h3>
+                                        <h3 className="text-2xl font-serif text-gray-400 group-hover:text-rose-500 transition-colors">Çıkış Yap</h3>
                                     </div>
                                 </motion.button>
                             </div>

@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 export class OutfitsService {
     constructor(private prisma: PrismaService) { }
 
-    async createOutfit(userId: string, data: { name?: string, description?: string, coverImage?: string | null, coverUrl?: string | null, items: { garmentItemId: string, slot?: string }[] }) {
+    async createOutfit(userId: string, data: { name?: string, description?: string, coverImage?: string | null, coverUrl?: string | null, isTryOn?: boolean, items: { garmentItemId: string, slot?: string }[] }) {
         let finalCoverUrl = data.coverUrl || null;
 
         // Only try to save base64 if we don't have a direct URL
@@ -37,6 +37,7 @@ export class OutfitsService {
                 name: data.name,
                 description: data.description,
                 coverUrl: finalCoverUrl,
+                isTryOn: data.isTryOn ?? false,
                 items: {
                     create: data.items.map(item => ({
                         garmentItemId: item.garmentItemId,

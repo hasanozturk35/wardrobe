@@ -1,66 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { Lock, Mail, User, ArrowRight, Loader2, Instagram, Chrome } from 'lucide-react';
+import { Loader2, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const BG_IMAGE = '/src/assets/quiet_luxury_wardrobe_bg_1772833697604.png';
-const AVATAR_IMAGE = '/src/assets/pinterest_fashion_couple_editorial_1772833854361.png';
-
 const AuthPage: React.FC = () => {
-    const [isLogin, setIsLogin] = useState(true);
+    const [isLogin,      setIsLogin]      = useState(true);
     const [isForgotMode, setIsForgotMode] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [, setSuccessMessage] = useState<string | null>(null);
-    const [formData, setFormData] = useState({ email: '', password: '', name: '' });
-    
-    // Parallax State
-    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const [isLoading,    setIsLoading]    = useState(false);
+    const [error,        setError]        = useState<string | null>(null);
+    const [,             setSuccessMsg]   = useState<string | null>(null);
+    const [formData,     setFormData]     = useState({ email: '', password: '', name: '' });
 
     const { setAuth } = useAuthStore();
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            setMousePos({
-                x: (e.clientX / window.innerWidth - 0.5) * 20,
-                y: (e.clientY / window.innerHeight - 0.5) * 20
-            });
-        };
-        window.addEventListener('mousemove', handleMouseMove);
-        return () => window.removeEventListener('mousemove', handleMouseMove);
-    }, []);
 
     const handleSocialLogin = (provider: string) => {
-        // Redirection to Backend OAuth Endpoint
-        const backendBaseUrl = 'http://localhost:3000'; // Assuming backend runs on 3000
-        window.location.href = `${backendBaseUrl}/auth/${provider}`;
+        window.location.href = `http://localhost:3000/auth/${provider}`;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
-        setSuccessMessage(null);
-
+        setSuccessMsg(null);
         try {
             if (isForgotMode) {
-                const response = await api.post('/auth/forgot-password', { email: formData.email });
-                setSuccessMessage(response.data.message);
+                const res = await api.post('/auth/forgot-password', { email: formData.email });
+                setSuccessMsg(res.data.message);
             } else {
                 const endpoint = isLogin ? '/auth/login' : '/auth/register';
-                const response = await api.post(endpoint, formData);
-                const { accessToken, user } = response.data;
+                const res = await api.post(endpoint, formData);
+                const { accessToken, user } = res.data;
                 setAuth(accessToken, user);
                 window.location.replace('/wardrobe');
             }
         } catch (err: any) {
             let msg = 'Bir hata oluştu. Lütfen tekrar deneyin.';
-            if (err.response) msg = err.response.data?.message || msg;
-            else if (err.request) msg = 'Bağlantı Hatası: Sunucuya ulaşılamıyor.';
-            else msg = err.message || msg;
+            if (err.response)      msg = err.response.data?.message || msg;
+            else if (err.request)  msg = 'Bağlantı Hatası: Sunucuya ulaşılamıyor.';
+            else                   msg = err.message || msg;
             setError(Array.isArray(msg) ? msg.join(', ') : msg);
         } finally {
             setIsLoading(false);
@@ -71,282 +49,287 @@ const AuthPage: React.FC = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // Animation Variants
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: { 
-            opacity: 1, 
-            transition: { staggerChildren: 0.1, delayChildren: 0.3 } 
-        }
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { 
-            opacity: 1, 
-            y: 0, 
-            transition: { duration: 0.8 } 
-        }
-    };
-
     return (
-        <div className="flex min-h-screen bg-[#FDFBF7] overflow-hidden">
-            {/* Left Panel: Elite Visual Storytelling */}
-            <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-black">
-                <motion.div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{ 
-                        backgroundImage: `url(${BG_IMAGE})`,
-                        x: mousePos.x * 0.5,
-                        y: mousePos.y * 0.5,
-                        scale: 1.1
-                    }}
-                    transition={{ type: 'spring', stiffness: 50, damping: 30 }}
-                />
-                
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent backdrop-blur-[0.5px]" />
+        <div className="flex min-h-screen overflow-hidden">
 
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 2, ease: "easeOut" }}
-                    className="relative z-10 w-full h-full flex items-center justify-center p-12"
+            {/* ═══════════════════════════════════════════════
+                LEFT — Cinematic Fashion Panel
+            ═══════════════════════════════════════════════ */}
+            <div className="hidden lg:block lg:w-[55%] relative overflow-hidden bg-[#0d0d0d]">
+
+                {/* Cinematic background video */}
+                <video
+                    autoPlay muted loop playsInline
+                    className="absolute inset-0 w-full h-full object-cover auth-video-zoom"
+                    style={{ filter: 'grayscale(8%) contrast(1.08) brightness(0.88)' }}
                 >
-                    <motion.img
-                        src={AVATAR_IMAGE}
-                        alt="3D Fashion Avatar"
-                        className="max-h-[85%] object-contain drop-shadow-[0_50px_50px_rgba(0,0,0,0.6)]"
-                        style={{ x: -mousePos.x, y: -mousePos.y }}
-                    />
-                </motion.div>
+                    <source src="/hero-video.mp4" type="video/mp4" />
+                </video>
 
-                {/* Magazine Typography Overlay */}
-                <div className="absolute bottom-24 left-20 right-20 z-20">
-                    <motion.p 
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 0.6, x: 0 }}
-                        transition={{ delay: 1 }}
-                        className="text-white font-sans tracking-[0.6em] text-[10px] uppercase mb-6"
-                    >
-                        Zeka ve Zarafetin Buluşması
-                    </motion.p>
-                    <motion.h2 
-                        initial={{ opacity: 0, y: 30 }}
+                {/* Cinematic overlay — gradient vignette */}
+                <div className="absolute inset-0 bg-gradient-to-br from-black/65 via-black/30 to-black/55" />
+
+                {/* Film grain */}
+                <div className="absolute inset-0 auth-grain opacity-[0.07] mix-blend-overlay pointer-events-none" />
+
+                {/* Top bar */}
+                <div className="absolute top-0 inset-x-0 px-14 py-12 flex items-center justify-between z-10">
+                    <span className="text-white/45 text-[9px] font-mono uppercase tracking-[0.6em]">Maison Wardrobe</span>
+                    <span className="text-white/25 text-[9px] font-mono uppercase tracking-[0.4em]">No. 01</span>
+                </div>
+
+                {/* Main content — bottom aligned */}
+                <div className="absolute bottom-0 inset-x-0 px-14 pb-16 z-10">
+                    <motion.div
+                        initial={{ opacity: 0, y: 28 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 1.2, duration: 1 }}
-                        className="text-7xl font-serif text-white leading-[1] mb-10 font-light italic"
+                        transition={{ duration: 2, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
                     >
-                        Stilini <br />
-                        <span className="not-italic font-normal text-white/95">Gelecekle Tanıştır.</span>
-                    </motion.h2>
-                    <div className="flex items-center space-x-8 opacity-40">
-                        <div className="w-20 h-[0.5px] bg-white" />
-                        <span className="text-white text-[9px] font-sans tracking-[0.4em] uppercase italic">P R E M I U M</span>
+                        <p className="text-white/35 text-[9px] font-mono uppercase tracking-[0.6em] mb-12">
+                            İstanbul · İzmir · Ankara
+                        </p>
+                        <h1 className="font-serif font-light text-white leading-[0.86] tracking-[-0.03em] mb-10"
+                            style={{ fontSize: 'clamp(72px, 8vw, 108px)' }}>
+                            Stiline<span className="italic text-white/55">.</span>
+                        </h1>
+                        <p className="text-white/35 text-[9px] font-mono uppercase tracking-[0.55em] leading-[2.4]">
+                            Kişisel AI Moda Deneyimi
+                        </p>
+                    </motion.div>
+
+                    <div className="mt-10 flex items-center gap-5 opacity-20">
+                        <div className="w-12 h-[0.5px] bg-white" />
+                        <span className="text-white text-[8px] font-mono uppercase tracking-[0.55em]">2026 Collection</span>
                     </div>
+                </div>
+
+                {/* Vertical magazine text — right edge */}
+                <div className="absolute right-7 inset-y-0 flex items-center z-10 pointer-events-none">
+                    <span
+                        className="text-white/18 text-[8px] font-mono uppercase tracking-[0.5em]"
+                        style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                    >
+                        AI · Stil · Arşiv · 2026
+                    </span>
                 </div>
             </div>
 
-            {/* Right Panel: Minimalist Perfection */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-12 lg:p-24 bg-[#FDFBF7] relative">
-                <div className="max-w-md w-full">
-                    
-                    <motion.div 
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        className="space-y-12"
+            {/* ═══════════════════════════════════════════════
+                RIGHT — Luxury Form
+            ═══════════════════════════════════════════════ */}
+            <div className="w-full lg:w-[45%] flex items-center justify-center bg-[#f8f6f2] px-10 py-20 relative">
+
+                {/* Mobile brand mark */}
+                <div className="absolute top-9 left-1/2 -translate-x-1/2 lg:hidden">
+                    <span className="text-[9px] font-mono uppercase tracking-[0.55em] text-gray-400">Maison Wardrobe</span>
+                </div>
+
+                <div className="w-full max-w-[340px]">
+
+                    {/* ── Heading ── */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 14 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+                        className="mb-14"
                     >
-                        {/* Header Section */}
-                        <motion.div variants={itemVariants} className="px-2">
-                            <h1 className="text-5xl font-serif font-bold text-gray-900 mb-5 tracking-tightest leading-[1.1]">
-                                {isForgotMode ? 'Şifremi Unuttum' : (isLogin ? 'Stil Yolculuğuna Dön' : 'Aramıza Katıl')}
-                            </h1>
-                            <p className="text-gray-400 font-sans tracking-wide text-sm leading-relaxed max-w-sm">
-                                {isForgotMode 
-                                    ? 'Sana özel bir sıfırlama anahtarı hazırladık.' 
-                                    : (isLogin ? 'Kişisel stil asistanınla kürate edilmiş bir moda deneyimine hazır mısın?' : 'Dijital gardırobunu profesyonel bir zeka ile yönetmeye bugün başla.')}
-                            </p>
-                        </motion.div>
-
-                        {/* Toggle Switch */}
-                        {!isForgotMode && (
-                            <motion.div variants={itemVariants} className="bg-gray-100/50 p-1.5 rounded-[22px] flex border border-gray-200/40 backdrop-blur-sm mx-2">
-                                <button
-                                    onClick={() => setIsLogin(true)}
-                                    className={`flex-1 py-3 text-[10px] font-black rounded-[18px] tracking-[0.15em] transition-all duration-500 ${isLogin ? 'bg-white text-black shadow-elite scale-[1.02]' : 'text-gray-400 hover:text-gray-500'}`}
-                                >
-                                    GİRİŞ
-                                </button>
-                                <button
-                                    onClick={() => setIsLogin(false)}
-                                    className={`flex-1 py-3 text-[10px] font-black rounded-[18px] tracking-[0.15em] transition-all duration-500 ${!isLogin ? 'bg-white text-black shadow-elite scale-[1.02]' : 'text-gray-400 hover:text-gray-500'}`}
-                                >
-                                    KAYIT
-                                </button>
-                            </motion.div>
-                        )}
-
-                        {/* Error Handling */}
-                        <AnimatePresence>
-                            {error && (
-                                <motion.div 
-                                    initial={{ opacity: 0, height: 0, y: -10 }}
-                                    animate={{ opacity: 1, height: 'auto', y: 0 }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    className="bg-red-50/30 text-red-600 text-[11px] p-5 rounded-3xl border border-red-100/50 flex items-center space-x-4 mx-2"
-                                >
-                                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                    <span className="font-semibold tracking-wide uppercase">{error}</span>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Form Section */}
-                        <form onSubmit={handleSubmit} className="space-y-12 px-2">
-                            <AnimatePresence mode="wait">
-                                <motion.div 
-                                    key={isLogin ? 'login' : 'register'}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: 10 }}
-                                    className="space-y-12"
-                                >
-                                    {!isLogin && !isForgotMode && (
-                                        <div className="group space-y-4">
-                                            <label className="text-[9px] font-black text-gray-300 uppercase tracking-[0.3em] ml-1 group-focus-within:text-black transition-colors">AD SOYAD</label>
-                                            <div className="relative">
-                                                <User className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 opacity-60 group-focus-within:opacity-100 group-focus-within:text-black transition-all" />
-                                                <input
-                                                    type="text"
-                                                    name="name"
-                                                    required
-                                                    placeholder="Örn: Hasan Öztürk"
-                                                    onChange={handleChange}
-                                                    className="w-full pl-8 pr-4 py-4 bg-transparent border-b border-gray-100 focus:border-black outline-none transition-all duration-700 placeholder:text-gray-200 font-sans text-sm"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="group space-y-4">
-                                        <label className="text-[9px] font-black text-gray-300 uppercase tracking-[0.3em] ml-1 group-focus-within:text-black transition-colors">E-POSTA</label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 opacity-60 group-focus-within:opacity-100 group-focus-within:text-black transition-all" />
-                                            <input
-                                                type="email"
-                                                name="email"
-                                                required
-                                                placeholder="stilin@kesfet.com"
-                                                onChange={handleChange}
-                                                className="w-full pl-8 pr-4 py-4 bg-transparent border-b border-gray-100 focus:border-black outline-none transition-all duration-700 placeholder:text-gray-200 font-sans text-sm"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {!isForgotMode && (
-                                        <div className="group space-y-4">
-                                            <div className="flex justify-between items-center ml-1">
-                                                <label className="text-[9px] font-black text-gray-300 uppercase tracking-[0.3em] group-focus-within:text-black transition-colors">ŞİFRE</label>
-                                                {isLogin && (
-                                                    <button 
-                                                        type="button"
-                                                        onClick={() => setIsForgotMode(true)}
-                                                        className="text-[8px] font-black text-gray-300 hover:text-black border-b border-transparent hover:border-black transition-all duration-500 tracking-widest"
-                                                    >
-                                                        UNUTTUM?
-                                                    </button>
-                                                )}
-                                            </div>
-                                            <div className="relative">
-                                                <Lock className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 opacity-60 group-focus-within:opacity-100 group-focus-within:text-black transition-all" />
-                                                <input
-                                                    type="password"
-                                                    name="password"
-                                                    required
-                                                    placeholder="••••••••"
-                                                    onChange={handleChange}
-                                                    className="w-full pl-8 pr-4 py-4 bg-transparent border-b border-gray-100 focus:border-black outline-none transition-all duration-700 placeholder:text-gray-200 font-sans text-sm"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </motion.div>
-                            </AnimatePresence>
-
-                            <motion.button
-                                whileHover={{ scale: 1.01, y: -2 }}
-                                whileTap={{ scale: 0.98 }}
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full bg-gradient-to-br from-gray-900 to-black text-white py-6 rounded-[24px] font-bold shadow-elite-hover hover:shadow-black/20 active:shadow-inner transition-all duration-500 overflow-hidden relative group"
-                            >
-                                {isLoading ? (
-                                    <Loader2 className="w-5 h-5 animate-spin mx-auto text-white/50" />
-                                ) : (
-                                    <div className="flex items-center justify-center space-x-3">
-                                        <span className="tracking-[0.3em] text-[10px] uppercase font-black">
-                                            {isForgotMode ? 'GÖNDER' : (isLogin ? 'GİRİŞ YAP' : 'ÜYELİĞİ TAMAMLA')}
-                                        </span>
-                                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-2 transition-transform duration-500" />
-                                    </div>
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                            </motion.button>
-                        </form>
-
-                        {/* Social Perfection */}
-                        <motion.div variants={itemVariants} className="mt-20">
-                            <div className="relative mb-12">
-                                <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-gray-100/50"></div>
-                                </div>
-                                <div className="relative flex justify-center text-[8px] uppercase tracking-[0.4em]">
-                                    <span className="bg-[#FDFBF7] px-8 text-gray-300 font-bold">ya da şununla devam et</span>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-8 px-2">
-                                <button 
-                                    type="button"
-                                    onClick={() => handleSocialLogin('google')}
-                                    className="flex items-center justify-center space-x-4 py-4 border-[0.5px] border-gray-100 rounded-2xl bg-white hover:bg-gray-50 hover:shadow-elite transition-all duration-500 group"
-                                >
-                                    <Chrome className="w-3.5 h-3.5 text-gray-400 group-hover:text-black" />
-                                    <span className="text-[9px] font-black tracking-[0.2em] text-gray-400 group-hover:text-black">GOOGLE</span>
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={() => handleSocialLogin('instagram')}
-                                    className="flex items-center justify-center space-x-4 py-4 border-[0.5px] border-gray-100 rounded-2xl bg-white hover:bg-gray-50 hover:shadow-elite transition-all duration-500 group"
-                                >
-                                    <Instagram className="w-3.5 h-3.5 text-gray-400 group-hover:text-pink-600" />
-                                    <span className="text-[9px] font-black tracking-[0.2em] text-gray-400 group-hover:text-pink-600">INSTAGRAM</span>
-                                </button>
-                            </div>
-                        </motion.div>
+                        <h2 className="font-serif font-light text-[#1a1a1a] leading-[1.08] tracking-[-0.02em] mb-5 whitespace-pre-line"
+                            style={{ fontSize: 'clamp(30px, 3vw, 40px)' }}>
+                            {isForgotMode
+                                ? 'Şifremi\nUnuttum.'
+                                : (isLogin ? 'Tekrar\nHoş Geldiniz.' : 'Hesap\nOluştur.')}
+                        </h2>
+                        <p className="text-[9px] font-mono uppercase tracking-[0.4em] text-gray-400">
+                            {isForgotMode
+                                ? 'ŞİFRENİ SIFIRLA'
+                                : (isLogin ? 'DEVAM ETMEK İÇİN GİRİŞ YAP' : 'HESAP OLUŞTUR')}
+                        </p>
                     </motion.div>
 
-                    <motion.p 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 0.5 }}
-                        transition={{ delay: 2.5 }}
-                        className="text-center text-gray-400 text-[8px] mt-20 uppercase tracking-[0.3em] font-medium"
+                    {/* ── Tab Toggle ── */}
+                    {!isForgotMode && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.9, delay: 0.3 }}
+                            className="flex mb-12 border-b border-gray-200"
+                        >
+                            {(['Giriş', 'Kayıt'] as const).map((label, i) => {
+                                const active = i === 0 ? isLogin : !isLogin;
+                                return (
+                                    <button
+                                        key={label}
+                                        onClick={() => setIsLogin(i === 0)}
+                                        className={`pb-4 pr-8 text-[9px] font-mono uppercase tracking-[0.35em] border-b-[1.5px] -mb-[1px] transition-all duration-300 ${active ? 'border-[#1a1a1a] text-[#1a1a1a]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </motion.div>
+                    )}
+
+                    {/* ── Error ── */}
+                    <AnimatePresence>
+                        {error && (
+                            <motion.p
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="text-[9px] text-red-500 uppercase tracking-[0.3em] mb-8 font-mono"
+                            >
+                                {error}
+                            </motion.p>
+                        )}
+                    </AnimatePresence>
+
+                    {/* ── Form ── */}
+                    <motion.form
+                        onSubmit={handleSubmit}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.9, delay: 0.4 }}
+                        className="space-y-10"
                     >
-                        P R E M İ U M &nbsp; D İ J İ T A L &nbsp; G A R D I R O P
-                    </motion.p>
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={isLogin ? 'login' : 'register'}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="space-y-10"
+                            >
+                                {!isLogin && !isForgotMode && (
+                                    <div className="group">
+                                        <label className="block text-[9px] font-mono uppercase tracking-[0.4em] text-gray-400 mb-3 group-focus-within:text-[#1a1a1a] transition-colors duration-300">
+                                            Ad Soyad
+                                        </label>
+                                        <input
+                                            type="text" name="name" required
+                                            placeholder="Hasan Öztürk"
+                                            onChange={handleChange}
+                                            className="w-full bg-transparent border-b border-gray-300 pb-3 text-[13px] text-[#1a1a1a] outline-none placeholder:text-gray-300 focus:border-[#1a1a1a] transition-colors duration-300 font-light"
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="group">
+                                    <label className="block text-[9px] font-mono uppercase tracking-[0.4em] text-gray-400 mb-3 group-focus-within:text-[#1a1a1a] transition-colors duration-300">
+                                        E-Posta
+                                    </label>
+                                    <input
+                                        type="email" name="email" required
+                                        placeholder="stilin@kesfet.com"
+                                        onChange={handleChange}
+                                        className="w-full bg-transparent border-b border-gray-300 pb-3 text-[13px] text-[#1a1a1a] outline-none placeholder:text-gray-300 focus:border-[#1a1a1a] transition-colors duration-300 font-light"
+                                    />
+                                </div>
+
+                                {!isForgotMode && (
+                                    <div className="group">
+                                        <div className="flex justify-between mb-3">
+                                            <label className="text-[9px] font-mono uppercase tracking-[0.4em] text-gray-400 group-focus-within:text-[#1a1a1a] transition-colors duration-300">
+                                                Şifre
+                                            </label>
+                                            {isLogin && (
+                                                <button type="button" onClick={() => setIsForgotMode(true)}
+                                                    className="text-[9px] font-mono uppercase tracking-[0.3em] text-gray-400 hover:text-[#1a1a1a] transition-colors duration-300">
+                                                    Unuttum
+                                                </button>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="password" name="password" required
+                                            placeholder="••••••••"
+                                            onChange={handleChange}
+                                            className="w-full bg-transparent border-b border-gray-300 pb-3 text-[13px] text-[#1a1a1a] outline-none placeholder:text-gray-300 focus:border-[#1a1a1a] transition-colors duration-300 font-light"
+                                        />
+                                    </div>
+                                )}
+                            </motion.div>
+                        </AnimatePresence>
+
+                        {/* Submit button */}
+                        <div className="pt-6">
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full py-[18px] bg-[#1a1a1a] text-white text-[9px] font-mono uppercase tracking-[0.55em] hover:bg-black transition-all duration-500 disabled:opacity-40 flex items-center justify-center gap-5 group"
+                            >
+                                {isLoading
+                                    ? <Loader2 size={13} className="animate-spin" />
+                                    : <>
+                                        {isForgotMode ? 'Bağlantı Gönder' : (isLogin ? 'Giriş Yap' : 'Hesap Oluştur')}
+                                        <ArrowRight size={11} className="opacity-50 group-hover:translate-x-1 transition-transform duration-300" />
+                                      </>
+                                }
+                            </button>
+                        </div>
+                    </motion.form>
+
+                    {/* ── Social ── */}
+                    {!isForgotMode && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.9, delay: 0.7 }}
+                            className="mt-14"
+                        >
+                            <div className="flex items-center gap-5 mb-8">
+                                <div className="flex-1 h-px bg-gray-200" />
+                                <span className="text-[8px] font-mono uppercase tracking-[0.4em] text-gray-400">ya da</span>
+                                <div className="flex-1 h-px bg-gray-200" />
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button type="button" onClick={() => handleSocialLogin('google')}
+                                    className="flex-1 py-3.5 border border-gray-200 text-[8px] font-mono uppercase tracking-[0.35em] text-gray-500 hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-all duration-300">
+                                    Google
+                                </button>
+                                <button type="button" onClick={() => handleSocialLogin('instagram')}
+                                    className="flex-1 py-3.5 border border-gray-200 text-[8px] font-mono uppercase tracking-[0.35em] text-gray-500 hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-all duration-300">
+                                    Instagram
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {isForgotMode && (
+                        <button type="button" onClick={() => setIsForgotMode(false)}
+                            className="mt-10 text-[9px] font-mono uppercase tracking-[0.35em] text-gray-400 hover:text-[#1a1a1a] transition-colors duration-300">
+                            ← Geri Dön
+                        </button>
+                    )}
+
+                    {/* Footer signature */}
+                    <p className="mt-20 text-center text-[8px] font-mono uppercase tracking-[0.5em] text-gray-300">
+                        Premium Dijital Gardırop
+                    </p>
                 </div>
             </div>
 
             <style>{`
-                .shadow-elite { box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
-                .shadow-elite-hover { box-shadow: 0 20px 50px rgba(0,0,0,0.1); }
-                .tracking-tightest { letter-spacing: -0.04em; }
-                
-                @keyframes shimmer {
-                    100% { transform: translateX(100%); }
+                /* Slow cinematic zoom on video */
+                .auth-video-zoom {
+                    animation: authVideoZoom 20s ease-out forwards;
                 }
-                .animate-shimmer {
-                    animation: shimmer 1.5s infinite;
+                @keyframes authVideoZoom {
+                    0%   { transform: scale(1.06); }
+                    100% { transform: scale(1.0); }
+                }
+
+                /* Film grain texture */
+                .auth-grain {
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+                    background-size: 200px 200px;
+                }
+
+                /* Input autofill override */
+                input:-webkit-autofill,
+                input:-webkit-autofill:focus {
+                    -webkit-box-shadow: 0 0 0 100px #f8f6f2 inset;
+                    -webkit-text-fill-color: #1a1a1a;
                 }
             `}</style>
         </div>

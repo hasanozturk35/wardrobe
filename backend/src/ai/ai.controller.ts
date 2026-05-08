@@ -14,8 +14,14 @@ export class AiController {
     }
 
     @Post('chat')
-    async chat(@Request() req: any, @Body() body: { message: string }) {
-        const result = await this.aiService.getStylistResponse(req.user.userId, body.message);
+    async chat(@Request() req: any, @Body() body: {
+        message: string;
+        imageBase64?: string;
+        history?: { role: 'user' | 'assistant'; content: string }[];
+    }) {
+        const result = await this.aiService.getStylistResponse(
+            req.user.userId, body.message, body.imageBase64, body.history
+        );
         return result;
     }
 
