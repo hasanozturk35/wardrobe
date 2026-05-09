@@ -40,7 +40,7 @@ const WardrobePage: React.FC = () => {
     const [activeCategory,     setActiveCategory]     = useState('Hepsi');
     const [selectedItem,       setSelectedItem]       = useState<any>(null);
     const [isAddModalOpen,     setIsAddModalOpen]     = useState(false);
-    const [userGender,         setUserGender]         = useState<'Erkek' | 'Kadın'>('Erkek');
+    const [userGender] = useState<'Erkek' | 'Kadın'>('Erkek');
     const [favorites,          setFavorites]          = useState<Set<string>>(new Set());
     const [outfitItems,        setOutfitItems]        = useState<any[]>([]);
     const [isOutfitBuilderOpen,setIsOutfitBuilderOpen]= useState(false);
@@ -721,7 +721,7 @@ const WardrobePage: React.FC = () => {
                                                     const itemId = categoryMap[cat];
                                                     const item = itemId ? items.find(i => i.id === itemId) : null;
                                                     const isSkipped = cat === 'dışGiyim' && !wearOuterwear;
-                                                    const isEmpty = !item;
+
                                                     return (
                                                         <motion.div
                                                             key={cat}

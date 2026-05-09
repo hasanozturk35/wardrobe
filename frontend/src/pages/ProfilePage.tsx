@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Camera, Edit3, Check, X, LogOut, Shirt, BookOpen, Eye,
-    Settings, User, Mail, Calendar, Shield, Heart,
-    ChevronRight, Lock, Bell, Palette, Trash2, ExternalLink,
+    User, Mail, Calendar, Shield, Heart,
+    ChevronRight, Lock, ExternalLink,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { getImageUrl, API_URL } from '../config';
+import { getImageUrl } from '../config';
 
 type Tab = 'profil' | 'ayarlar';
 
@@ -38,7 +38,6 @@ export default function ProfilePage() {
     const [savingName,      setSavingName]      = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [avatarPreview,   setAvatarPreview]   = useState<string | null>(null);
-    const [deleteConfirm,   setDeleteConfirm]   = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {

@@ -3,12 +3,14 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcryptjs';
 import { RegisterDto, LoginDto, ResetPasswordDto } from './auth.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
     constructor(
         private readonly usersService: UsersService,
         private readonly jwtService: JwtService,
+        private readonly mailService: MailService,
     ) { }
     async register(registerDto: RegisterDto) {
         try {
@@ -117,13 +119,9 @@ export class AuthService {
 
         await this.usersService.updateResetToken(user.id, token, expires);
 
-        // MOCK EMAIL SENDING
-        console.log('------------------------------------------');
-        console.log('PASSWORD RESET LINK (MOCK EMAIL):');
-        console.log(`URL: http://localhost:5174/reset-password?token=${token}`);
-        console.log('------------------------------------------');
+        await this.mailService.sendPasswordReset(email, token);
 
-        return { message: 'Reset link has been generated and logged to terminal.' };
+        return { message: 'If an account exists with this email, a reset link has been sent.' };
     }
 
     async resetPassword(resetDto: ResetPasswordDto) {

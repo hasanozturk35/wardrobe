@@ -1,31 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 @Injectable()
 export class MailService {
     private readonly logger = new Logger(MailService.name);
-    private transporter: nodemailer.Transporter;
+    private resend: Resend;
 
     constructor(private config: ConfigService) {
-        const pass = (this.config.get<string>('GMAIL_APP_PASSWORD') || '').replace(/\s/g, '');
-        this.transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
-            auth: {
-                user: this.config.get<string>('GMAIL_USER'),
-                pass,
-            },
-        });
+        this.resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
     }
 
     async sendPasswordReset(toEmail: string, resetToken: string) {
         const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
         const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
-        await this.transporter.sendMail({
-            from: `"Wardrobe App" <${this.config.get('GMAIL_USER')}>`,
+        const { error } = await this.resend.emails.send({
+            from: 'Wardrobe App <onboarding@resend.dev>',
             to: toEmail,
             subject: 'Şifre Sıfırlama',
             html: `
@@ -56,6 +47,11 @@ export class MailService {
                 </div>
             `,
         });
+
+        if (error) {
+            this.logger.error(`Mail gönderilemedi: ${error.message}`);
+            throw new Error(error.message);
+        }
 
         this.logger.log(`Password reset email sent to ${toEmail}`);
     }

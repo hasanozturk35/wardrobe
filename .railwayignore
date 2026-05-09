@@ -1,0 +1,10 @@
+frontend/
+.venv/
+docs/
+screenshots/
+*.txt
+*.py
+*.png
+*.exe
+backend/node_modules/
+backend/dist/
