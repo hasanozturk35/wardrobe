@@ -40,7 +40,7 @@ const WardrobePage: React.FC = () => {
     const [activeCategory,     setActiveCategory]     = useState('Hepsi');
     const [selectedItem,       setSelectedItem]       = useState<any>(null);
     const [isAddModalOpen,     setIsAddModalOpen]     = useState(false);
-    const [userGender] = useState<'Erkek' | 'Kadın'>('Erkek');
+    const [userGender, setUserGender] = useState<'Erkek' | 'Kadın'>(() => (localStorage.getItem('userGender') as 'Erkek' | 'Kadın') || 'Erkek');
     const [favorites,          setFavorites]          = useState<Set<string>>(new Set());
     const [outfitItems,        setOutfitItems]        = useState<any[]>([]);
     const [isOutfitBuilderOpen,setIsOutfitBuilderOpen]= useState(false);
@@ -336,6 +336,17 @@ const WardrobePage: React.FC = () => {
                                     onChange={e => setSearchTerm(e.target.value)}
                                 />
                             </div>
+                            <button
+                                onClick={() => {
+                                    const next = userGender === 'Erkek' ? 'Kadın' : 'Erkek';
+                                    setUserGender(next);
+                                    localStorage.setItem('userGender', next);
+                                }}
+                                className="hidden lg:flex items-center gap-2 px-5 py-2.5 bg-white/60 backdrop-blur-xl border border-white/80 hover:border-black/30 text-gray-700 rounded-full text-sm font-medium transition-all shadow-sm hover:shadow-md"
+                                title="AI önerileri için cinsiyet"
+                            >
+                                {userGender === 'Erkek' ? '♂ Erkek' : '♀ Kadın'}
+                            </button>
                             <button onClick={() => setIsOutfitBuilderOpen(!isOutfitBuilderOpen)} className="hidden lg:flex items-center gap-2 px-6 py-2.5 bg-white/60 backdrop-blur-xl border border-white/80 hover:border-black/30 text-gray-700 rounded-full text-sm font-medium transition-all shadow-sm hover:shadow-md group">
                                 <Wand2 size={15} className="group-hover:rotate-12 transition-transform" /> Stüdyo
                             </button>

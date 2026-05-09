@@ -9,6 +9,7 @@ import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getImageUrl } from '../config';
+import { useUIStore } from '../store/uiStore';
 
 type Tab = 'profil' | 'ayarlar';
 
@@ -29,6 +30,7 @@ interface PublicOutfit {
 export default function ProfilePage() {
     const { user, updateUser, logout } = useAuthStore();
     const navigate = useNavigate();
+    const { showToast } = useUIStore();
 
     const [tab,             setTab]             = useState<Tab>('profil');
     const [stats,           setStats]           = useState<Stats | null>(null);
@@ -60,7 +62,7 @@ export default function ProfilePage() {
             const res = await api.patch('/users/profile', { name: nameValue.trim() });
             updateUser({ name: res.data.name });
             setEditingName(false);
-        } catch {} finally { setSavingName(false); }
+        } catch { showToast('İsim kaydedilemedi.', 'error'); } finally { setSavingName(false); }
     };
 
     const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,7 +75,7 @@ export default function ProfilePage() {
             form.append('avatar', file);
             const res = await api.post('/users/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
             updateUser({ avatarUrl: res.data.avatarUrl });
-        } catch { setAvatarPreview(null); }
+        } catch { setAvatarPreview(null); showToast('Avatar yüklenemedi.', 'error'); }
         finally { setUploadingAvatar(false); }
     };
 

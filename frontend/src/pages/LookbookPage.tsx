@@ -101,7 +101,7 @@ const LookbookPage: React.FC = () => {
             const res = await api.post(`/social/share/${id}`, {});
             setOutfits(prev => prev.map(o => o.id === id ? { ...o, isPublic: res.data.isPublic } : o));
             showToast('Topluluktan kaldırıldı');
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error(e); showToast('Bir hata oluştu.', 'error'); }
     };
 
     const confirmShare = async (occasion?: string) => {
@@ -111,7 +111,7 @@ const LookbookPage: React.FC = () => {
             const res = await api.post(`/social/share/${occasionPickerOutfitId}`, { occasion });
             setOutfits(prev => prev.map(o => o.id === occasionPickerOutfitId ? { ...o, isPublic: res.data.isPublic } : o));
             showToast('Topluluğa paylaşıldı!');
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error(e); showToast('Paylaşım başarısız.', 'error'); }
     };
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -121,7 +121,7 @@ const LookbookPage: React.FC = () => {
             await api.delete(`/outfits/${id}`);
             setOutfits(prev => prev.filter(o => o.id !== id));
             showToast('Silindi');
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error(e); showToast('Silme başarısız.', 'error'); }
     };
 
     const openLinks = (outfit: Outfit, e: React.MouseEvent) => {

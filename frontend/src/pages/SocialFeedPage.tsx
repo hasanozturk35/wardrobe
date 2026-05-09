@@ -445,9 +445,8 @@ const SocialFeedPage: React.FC = () => {
                                                 <Avatar src={currentUser?.avatarUrl} name={currentUser?.name} size={28} />
                                                 <input
                                                     placeholder="Yorum ekle..."
-                                                    className="flex-1 bg-transparent text-[12px] font-serif italic text-gray-600 outline-none placeholder:text-gray-300"
+                                                    className="flex-1 bg-transparent text-[12px] font-serif italic text-gray-600 outline-none placeholder:text-gray-300 cursor-pointer"
                                                     onFocus={() => openComments(post.id)}
-                                                    readOnly
                                                 />
                                             </div>
                                         </motion.article>

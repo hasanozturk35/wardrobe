@@ -28,7 +28,7 @@ const StudioPage: React.FC = () => {
         if (!file) return;
 
         if (!file.name.toLowerCase().endsWith('.glb')) {
-            alert('Lütfen sadece .glb uzantılı 3D avatar dosyası yükleyin.');
+            showToast('Lütfen sadece .glb uzantılı 3D avatar dosyası yükleyin.', 'error');
             return;
         }
 
@@ -42,14 +42,13 @@ const StudioPage: React.FC = () => {
             });
 
             if (res.status === 200 || res.status === 201) {
-                alert('Avatar başarıyla yüklendi!');
+                showToast('Avatar başarıyla yüklendi!', 'success');
                 window.location.reload();
             } else {
-                alert(`Yükleme hatası: Bilinmeyen hata`);
+                showToast('Yükleme hatası oluştu.', 'error');
             }
         } catch (error: any) {
-            console.error('Upload error:', error);
-            alert(`Avatar yüklenirken bir hata oluştu: ${error.response?.data?.message || error.message}`);
+            showToast(error.response?.data?.message || 'Avatar yüklenirken bir hata oluştu.', 'error');
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';

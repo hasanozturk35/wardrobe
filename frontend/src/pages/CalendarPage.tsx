@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, Menu, Plus, X } from 'lucide-react';
 import { API_URL, getImageUrl } from '../config';
+import { useUIStore } from '../store/uiStore';
 
 interface Outfit {
     id: string;
@@ -15,9 +16,10 @@ interface CalendarEvent {
 }
 
 const CalendarPage: React.FC = () => {
-    // const navigate = useNavigate();
+    const { showToast } = useUIStore();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
     
     // Modal State
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -93,28 +95,36 @@ const CalendarPage: React.FC = () => {
             if (res.ok) {
                 setShowModal(false);
                 fetchEvents();
+                showToast('Kombin güne atandı.', 'success');
             } else {
-                alert("Kombin atanamadı.");
+                showToast('Kombin atanamadı, tekrar deneyin.', 'error');
             }
         } catch (error) {
-            console.error(error);
+            showToast('Bir hata oluştu.', 'error');
         }
     };
 
     const removeEvent = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm('Bugünden bu kombini kaldırmak istediğinize emin misiniz?')) return;
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/calendar/events/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                setEvents(prev => prev.filter(ev => ev.id !== id));
+        if (pendingDeleteId === id) {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`${API_URL}/calendar/events/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    setEvents(prev => prev.filter(ev => ev.id !== id));
+                    showToast('Kombin kaldırıldı.', 'success');
+                }
+            } catch (error) {
+                showToast('Silme işlemi başarısız.', 'error');
+            } finally {
+                setPendingDeleteId(null);
             }
-        } catch (error) {
-            console.error(error);
+        } else {
+            setPendingDeleteId(id);
+            setTimeout(() => setPendingDeleteId(null), 3000);
         }
     };
 
@@ -207,11 +217,11 @@ const CalendarPage: React.FC = () => {
                                                 />
                                             )}
                                             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                                                <button 
+                                                <button
                                                     onClick={(e) => removeEvent(dayEvents[0].id, e)}
-                                                    className="p-3 bg-white text-red-500 rounded-full hover:bg-red-500 hover:text-white scale-75 hover:scale-100 transition-all shadow-xl"
+                                                    className={`px-3 py-2 rounded-full text-xs font-bold transition-all shadow-xl ${pendingDeleteId === dayEvents[0].id ? 'bg-red-500 text-white scale-100' : 'bg-white text-red-500 scale-75 hover:scale-100'}`}
                                                 >
-                                                    <X size={20} />
+                                                    {pendingDeleteId === dayEvents[0].id ? 'Sil?' : <X size={20} />}
                                                 </button>
                                             </div>
                                         </div>

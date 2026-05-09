@@ -37,15 +37,20 @@ const LandingPage: React.FC = () => {
                     </motion.div>
                 </div>
                 <div className="flex items-center gap-12 overflow-hidden">
-                    {['Koleksiyon', 'Studio', 'Keşfet'].map((link, i) => (
-                        <motion.button 
-                            key={link}
+                    {[
+                        { label: 'Koleksiyon', path: '/wardrobe' },
+                        { label: 'Studio', path: '/studio' },
+                        { label: 'Keşfet', path: '/discover' },
+                    ].map(({ label, path }, i) => (
+                        <motion.button
+                            key={label}
                             initial={{ y: 50 }}
                             animate={{ y: 0 }}
                             transition={{ delay: 0.1 + i * 0.1 }}
+                            onClick={() => navigate(path)}
                             className="text-[9px] font-black uppercase tracking-[0.4em] hidden md:block hover:opacity-40 transition-opacity"
                         >
-                            {link}
+                            {label}
                         </motion.button>
                     ))}
                     <motion.button 
@@ -144,7 +149,7 @@ const LandingPage: React.FC = () => {
                         <div className="bg-white/5 backdrop-blur-3xl border border-white/10 p-12 rounded-[4rem] max-w-2xl">
                             <span className="text-[9px] font-black text-white/50 uppercase tracking-[0.5em] mb-6 block">Mirasın Sesi</span>
                             <h3 className="text-5xl font-serif text-white mb-8 leading-tight italic font-light">"Zarafet, göze çarpmak değil, akılda kalmaktır."</h3>
-                            <button className="flex items-center gap-4 text-white text-[10px] font-bold uppercase tracking-[0.4em] hover:gap-8 transition-all">
+                            <button onClick={() => navigate('/studio')} className="flex items-center gap-4 text-white text-[10px] font-bold uppercase tracking-[0.4em] hover:gap-8 transition-all">
                                 3D STUDIO'YU İNCELE <ChevronRight size={14} />
                             </button>
                         </div>
@@ -193,8 +198,13 @@ const LandingPage: React.FC = () => {
                     </div>
                     
                     <div className="flex gap-20">
-                        {['Press', 'Legal', 'Privacy', 'Contact'].map(link => (
-                            <button key={link} className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 hover:text-black transition-colors">{link}</button>
+                        {[
+                            { label: 'Press', path: '/feed' },
+                            { label: 'Legal', path: '/auth' },
+                            { label: 'Privacy', path: '/auth' },
+                            { label: 'Contact', path: '/auth' },
+                        ].map(({ label, path }) => (
+                            <button key={label} onClick={() => navigate(path)} className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 hover:text-black transition-colors">{label}</button>
                         ))}
                     </div>
                 </div>
