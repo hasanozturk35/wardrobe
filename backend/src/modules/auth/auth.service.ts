@@ -93,9 +93,15 @@ export class AuthService {
     };
   }
 
+  private getRefreshSecret(): string {
+    const secret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    if (!secret) throw new Error('JWT_REFRESH_SECRET environment variable is not set');
+    return secret;
+  }
+
   async refreshTokens(refreshToken: string, ip?: string, ua?: string) {
     try {
-      const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'refreshSecret123';
+      const refreshSecret = this.getRefreshSecret();
       await this.jwtService.verifyAsync(refreshToken, { secret: refreshSecret });
       
       const tokenHash = this.hashToken(refreshToken);
@@ -130,7 +136,7 @@ export class AuthService {
 
   private async issueNewSession(userId: string, email: string, role: string, ip?: string, ua?: string) {
     const payload = { sub: userId, email, role };
-    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'refreshSecret123';
+    const refreshSecret = this.getRefreshSecret();
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, { 

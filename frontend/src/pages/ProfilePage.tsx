@@ -263,7 +263,7 @@ export default function ProfilePage() {
                                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                                                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-3 text-white">
                                                             <span className="flex items-center gap-1 text-[11px] font-mono">
-                                                                <Heart size={12} fill="white" /> {outfit._count.likes}
+                                                                <Heart size={12} fill="white" /> {outfit._count?.likes ?? 0}
                                                             </span>
                                                         </div>
                                                     </div>

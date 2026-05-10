@@ -74,7 +74,8 @@ export class AiService {
         userId: string,
         userMessage: string,
         imageBase64?: string,
-        history?: { role: 'user' | 'assistant'; content: string }[]
+        history?: { role: 'user' | 'assistant'; content: string }[],
+        gender?: string
     ) {
         // 1. Get user's wardrobe context
         const wardrobe = await this.prisma.wardrobe.findUnique({
@@ -88,45 +89,79 @@ export class AiService {
 
         const wardrobeEmpty = !wardrobe || !wardrobe.items.length;
 
-        // 2. Prepare context for AI
+        // 2. Prepare context for AI — include gender per item
         const wardrobeSummary = wardrobeEmpty
             ? '(Gardırop boş)'
             : wardrobe.items.map(item =>
-                `- ID:${item.id} | ${item.category} | Marka: ${item.brand || 'Bilinmeyen'} | Renk: ${item.colors.join(', ')} | Mevsim: ${item.seasons.join(', ')}`
+                `- ID:${item.id} | ${item.category} | Marka: ${item.brand || 'Bilinmeyen'} | Renk: ${item.colors.join(', ')} | Mevsim: ${item.seasons.join(', ')} | Cinsiyet: ${(item as any).gender || 'Unisex'}`
               ).join('\n');
+
+        const genderContext = gender === 'Erkek'
+            ? `KULLANICI CİNSİYETİ: ERKEK — BU KURAL HER ŞEYIN ÖNÜNDE GELIR.
+CİNSİYET KURALLARI — KESİN ZORUNLU:
+• Bu kullanıcı erkektir. Tüm öneriler ERKEK modasına uygun olmalıdır.
+• Erkek gardırop ögeleri: düz/slim/chino pantolon, jean (slim/regular/straight/wide erkek kesimi), polo yaka, gömlek, tişört, sweatshirt, kapüşonlu üst, blazer ceket, denim ceket, bomber ceket, mont, spor ayakkabı, bot, oxford/loafer ayakkabı, erkek çantası/sırt çantası.
+• KESINLIKLE ÖNERME (bunlar kadın ürünü): etek, palazzo pantolon, wide-leg akışkan kumaş kadın pantolonu, crop top, kadın bluzu, elbise, kadın trençkotu (dar bel, parlak kumaş kadın modeli), yüksek topuklu, kadın çantası, büyük kulplu el çantası.
+• CAMEL/BEJ PANTOLON KURALI: Dolaptaki camel renkli pantolon geniş paçalı/akışkan/palazzo kesimli ise ERKEK KULLANICISINA ASLA ÖNERME. Chino/düz/slim kesim erkek pantolonu ise önere bilirsin.
+• Dolaptaki parça "Unisex" etiketli olsa bile eğer kesimi/modeli kadın stiline aitse ÖNERME — erkek mantığıyla yorum yap.
+• Önereceğin her alt giyim parçasını kontrol et: "Bu erkek pantolonu mu kadın pantolonu mu?" — kadın kesimiyse listeden çıkar.`
+            : gender === 'Kadın'
+            ? `KULLANICI CİNSİYETİ: KADIN
+CİNSİYET KURALLARI — KESİN ZORUNLU:
+• Bu kullanıcı kadındır. SADECE kadın ya da unisex parçalar öner.
+• Kadın modası: etek, elbise, bluz, kadın kesim pantolon, crop üst, kadın blazer, trençkot, topuklu, kadın bot/sneaker.
+• Eğer dolaptaki parça erkek modeli (erkek gömleği, takım elbise pantolonu vb.) ise kadın üzerine nasıl stilize edileceğini açıkla ya da başka parça öner.`
+            : `KULLANICI CİNSİYETİ: Belirtilmemiş — Unisex öneriler yap.`;
 
         const hasImage = !!imageBase64;
         const systemPrompt = `Sen dünyanın en iyi kişisel stil danışmanısın. Adın "Stil". Türkçe konuşuyorsun ve her cevabında gerçek bir uzman gibi davranıyorsun.
 
+${genderContext}
+
 KULLANICININ DOLABI:
 ${wardrobeSummary}
+
+DİL KURALI — KESİN ZORUNLU:
+• SADECE saf Türkçe kullan. İngilizce kelime kesinlikle yasak.
+• Yabancı marka isimleri (Zara, Mavi, H&M vb.) hariç hiçbir İngilizce kelime yazma.
+• Doğru Türkçe karşılıklar: "self-confidence" → "özgüven", "crochet" → "tığ işi/örgü", "oversized" → "bol kesim", "casual" → "gündelik", "trendy" → "trend", "chic" → "şık", "smart casual" → "akıllı gündelik", "outfit" → "kombin".
+• Cümlelerin tamamı Türkçe olacak.
 
 SENİN DERİN BİLGİN:
 • Renk teorisi: hangi renkler tamamlar (lacivert+bej, haki+beyaz, bordo+gri), hangileri çatışır, ton uyumu
 • Doku ve kumaş: mat+parlak kombinasyonu, keten yazın neden nefes aldırır, kadife kışın nasıl kullanılır
-• Kesim ve vücut: oversized üst+slim alt dengesi, yüksek bel bacağı uzatır, omuz genişliği nasıl dengelenir
-• Türk moda kültürü: Nişantaşı minimalizmi, Karaköy alternatif karışımı, Boğaz kenarı smart-casual, İzmir rahat şıklığı
-• Kapsül gardırop felsefesi: 10 parçayla 30 kombin kuralı, temel renk paleti, signature parça kavramı
-• Occasion dressing: sabah toplantısı vs akşam yemeği vs hafta sonu brunch vs gece çıkışı
-• Marka rehberi: Mavi'nin en iyi kesimi hangisi, Zara'da neye bakılır, COS minimalizmi, Massimo Dutti klasiği
-• Trendler ve zamansızlık: neyin geçici neyin kalıcı olduğunu bilirsin${hasImage ? '\n• Kullanıcı fotoğraf gönderdi: görseli oku, kıyafet türü/renk/stil hakkında spesifik yorum yap, dolabından uyumlu parçaları göster' : ''}
+• Kesim ve vücut: bol kesim üst+dar alt dengesi, yüksek bel bacağı uzatır, omuz genişliği nasıl dengelenir
+• Türk moda kültürü: Nişantaşı minimalizmi, Karaköy alternatif karışımı, İzmir rahat şıklığı
+• Kapsül gardırop felsefesi: 10 parçayla 30 kombin kuralı, temel renk paleti
+• Occasion dressing: sabah toplantısı vs akşam yemeği vs hafta sonu vs gece çıkışı
+• Marka rehberi: Mavi'nin en iyi kesimi hangisi, Zara'da neye bakılır, LC Waikiki değeri${hasImage ? '\n• Kullanıcı fotoğraf gönderdi: görseli oku, kıyafet türü/renk/stil hakkında spesifik yorum yap, dolabından uyumlu parçaları göster' : ''}
+
+KOMBİN TAMAMLAYICI KURALI — EN KRİTİK KURAL:
+Kullanıcı bir parçayı sorarken "buna ne gider?" dediğinde, suggestedOutfitIds'e ASLA aynı kategoriden parça koyma.
+Tamamlayıcı kategoriler:
+• "Alt Giyim" soruldu → öner: Üst Giyim, Dış Giyim, Ayakkabı, Aksesuar — KESİNLİKLE başka Alt Giyim ekleme
+• "Üst Giyim" soruldu → öner: Alt Giyim, Dış Giyim, Ayakkabı, Aksesuar — KESİNLİKLE başka Üst Giyim ekleme
+• "Dış Giyim" soruldu → öner: Üst Giyim, Alt Giyim, Ayakkabı, Aksesuar — KESİNLİKLE başka Dış Giyim ekleme
+• "Ayakkabı" soruldu → öner: Üst Giyim, Alt Giyim, Dış Giyim, Aksesuar — KESİNLİKLE başka Ayakkabı ekleme
+• "Aksesuar" soruldu → öner: Üst Giyim, Alt Giyim, Ayakkabı, Dış Giyim — KESİNLİKLE başka Aksesuar ekleme
+BU KURAL İHLAL EDİLEMEZ. "Alt giyime ne gider?" sorusuna alt giyim önermek komple yanlış bir öneridir.
 
 NASIL KONUŞURSUN:
-• Cesur ve kesin: "Bu yakışır" değil, "Bu siyah tişört oversized giyildiğinde, beli kapatacak uzunlukta durduğunda en güçlü halini alır"
-• Neden'i açıklarsın: sadece ne giyeceğini değil, neden o kombinasyonun işe yaradığını söylersin
-• Bazen provoke edersin: "Çoğu insan siyah-siyah karışımından kaçınır ama sen yapma — mat ve parlak dokular harika gider"
-• Eksikleri söylersin ama zalim değilsin: "Dolabında temel bir bej pantolon yok, bu bir parçayla kombin sayını ikiye katlardin"
-• 2-4 cümle yaz, sıkıcı olma, her cümle değer taşısın
+• Cesur ve kesin öner, neden işe yaradığını açıkla
+• Eksikleri söyle ama yapıcı ol
+• 2-4 cümle yaz, sıkıcı olma
 
 MESAJ TÜRÜNE GÖRE DAVRAN:
-• Selamlama/sohbet ("merhaba", "nasılsın", "hey" vb.) → sadece samimi karşılık ver, suggestedOutfitIds BOŞ bırak []
-• Stil/kombin sorusu → dolabı analiz et, spesifik öner, ilgili parçaları suggestedOutfitIds'e ekle
-• Genel soru (trend, renk, marka vb.) → cevap ver, dolap SADECE bağlantılıysa dahil et
+• Selamlama/sohbet → samimi karşılık ver, suggestedOutfitIds BOŞ []
+• Stil/kombin sorusu → dolabı analiz et, tamamlayıcı kategorilerden öner, ilgili parçaları suggestedOutfitIds'e ekle
+• "Buna ne gider?" → sorulan parçanın KATEGORİSİNİ tespit et, o kategoriden HİÇ parça ekleme, sadece tamamlayıcı kategorilerden öner
+• Genel soru → cevap ver, dolap SADECE bağlantılıysa dahil et
 
-SADECE JSON formatında cevap ver, başka hiçbir şey yazma:
-{"message": "cevap buraya — samimi, spesifik, ilham verici", "suggestedOutfitIds": ["SADECE-GERCEK-DOLAP-ID"]}
+SADECE JSON formatında cevap ver:
+{"message": "cevap buraya", "suggestedOutfitIds": ["SADECE-GERCEK-DOLAP-ID"]}
 
-KRİTİK: suggestedOutfitIds'e YALNIZCA dolap listesindeki gerçek ID'leri yaz. Hiçbir ID'yi uydurma veya tahmin etme. Sohbet mesajlarında kesinlikle [] döndür.`;
+KRİTİK: suggestedOutfitIds'e YALNIZCA dolap listesindeki gerçek ID'leri yaz. Uydurma. Sohbet mesajlarında kesinlikle [] döndür.
+KATEGORİ KURALI: Aynı kategoriden 2 parça asla önerme. Çeşitlilik şart — üst+alt+ayakkabı kombinasyonu ideal.`;
 
         // 3. Claude (Anthropic) — primary
         if (this.anthropic) {
@@ -228,13 +263,14 @@ KRİTİK: suggestedOutfitIds'e YALNIZCA dolap listesindeki gerçek ID'leri yaz. 
             const base64Image = file.buffer.toString('base64');
             const mimeType = file.mimetype || 'image/jpeg';
 
-            this.logger.log('Sending image to OpenAI Vision...');
+            const visionModel = this.isGroq ? 'llama-3.2-11b-vision-preview' : 'gpt-4o';
+            this.logger.log(`Sending image to Vision API (${visionModel})...`);
             const response = await this.openai.chat.completions.create({
-                model: "gpt-4o",
+                model: visionModel,
                 messages: [
                     {
                         role: "system",
-                        content: "Sen bir dijital gardırop asistanısın. Gösterilen kıyafeti analiz et. Yalnızca şu kategorilerden birini seç: 'Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'. Renkleri Türkçe dizi (array) olarak belirt. Yanıtın kesinlikle JSON olmalı. Örn: {\"category\": \"Üst Giyim\", \"colors\": [\"Siyah\", \"Beyaz\"]}"
+                        content: "Sen bir dijital gardırop asistanısın. Gösterilen kıyafeti analiz et. Yalnızca şu kategorilerden birini seç: 'Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'. Renkler için YALNIZCA şu listeden seç: Siyah, Beyaz, Lacivert, Gri, Vizon, Bej, Camel, Kahverengi, Kırmızı, Bordo, Mavi, Yeşil, Sarı, Turuncu, Pembe, Mor. Yanıtın kesinlikle JSON olmalı. Örn: {\"category\": \"Üst Giyim\", \"colors\": [\"Camel\"]}"
                     },
                     {
                         role: "user",
@@ -244,14 +280,15 @@ KRİTİK: suggestedOutfitIds'e YALNIZCA dolap listesindeki gerçek ID'leri yaz. 
                         ]
                     }
                 ],
-                response_format: { type: "json_object" }
+                ...(this.isGroq ? {} : { response_format: { type: "json_object" as const } }),
             });
 
-            const result = JSON.parse(response.choices[0].message.content || "{}");
+            const content = response.choices[0].message.content || "{}";
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            const result = JSON.parse(jsonMatch ? jsonMatch[0] : content);
             return result;
         } catch (error) {
             this.logger.error("Vision API Error", error);
-            // Fallback to mock on error to maintain UX
             return { category: 'Üst Giyim', colors: ['Siyah'] };
         }
     }
@@ -381,10 +418,16 @@ KRİTİK: suggestedOutfitIds'e YALNIZCA dolap listesindeki gerçek ID'leri yaz. 
         if (!this.openai) return fallbackResult();
 
         try {
-            const itemDescriptions = items.map(i => {
+            // Önce kullanıcı cinsiyetiyle uyumlu parçaları filtrele
+            const genderFilteredItems = items.filter(i =>
+                !i.gender || i.gender === 'Unisex' || i.gender === gender
+            );
+            const itemsToUse = genderFilteredItems.length >= 2 ? genderFilteredItems : items;
+
+            const itemDescriptions = itemsToUse.map(i => {
                 const colors  = Array.isArray(i.colors)  && i.colors.length  ? i.colors.join(', ')  : 'renk belirtilmemiş';
                 const seasons = Array.isArray(i.seasons) && i.seasons.length ? i.seasons.join(', ') : 'tüm mevsim';
-                return `ID:${i.id} | ${i.category} | ${i.brand || '?'} | Renk: ${colors} | Mevsim: ${seasons}`;
+                return `ID:${i.id} | ${i.category} | ${i.brand || '?'} | Renk: ${colors} | Mevsim: ${seasons} | Cinsiyet: ${i.gender || 'Unisex'}`;
             }).join('\n');
 
             const systemPrompt = `Sen dünyanın en iyi kişisel moda stilistisin. Kullanıcının gardırobundan BUGÜNE ÖZEL, HAVA DURUMUNA GÖRE mükemmel bir kategori bazlı kombin seç.
@@ -405,7 +448,9 @@ GARDIROPTAKİ PARÇALAR:
 ${itemDescriptions}
 
 KOMBİN KURALLARIN:
-1. CİNSİYET: Sadece ${gender} cinsiyetine uygun parça seç. Unisex her cins için geçerli.
+1. CİNSİYET — EN ÖNEMLİ KURAL: Kullanıcı ${gender}.
+${gender === 'Erkek' ? '   → ERKEK modu: jean, chino, düz pantolon, polo, gömlek, tişört, sweatshirt, ceket, mont, bot/sneaker/oxford seç. Etek, palazzo pantolon, kadın bluzu, elbise, crop top KESİNLİKLE YASAK.' : gender === 'Kadın' ? '   → KADIN modu: etek, elbise, kadın bluz, kadın pantolon, crop üst, kadın blazer seç.' : '   → UNİSEX: Her iki cinsiyete uygun parçalar seç.'}
+   Cinsiyet etiketi "Unisex" olan parça bile görsel kesimi erkek/kadına özel ise cinsiyete göre değerlendir.
 2. HAVA DURUMU: Sıcaklığa göre dış giyim kararını uygula. ${needsOuterwear ? 'Dış Giyim EKLE.' : 'Dış Giyim ekleme.'}
 3. RENK UYUMU: Analog (bej+krem+kahve), tamamlayıcı (lacivert+bej, haki+beyaz), monokromatik. Çakışan parlak renklerden kaçın.
 4. KATEGORİ DENGESİ: Her kategoriden EN FAZLA 1 parça. Üst+Alt+Ayakkabı temel üçlüdür.
@@ -440,7 +485,7 @@ SADECE JSON dön:
             const outfit: Record<string,string> = raw.outfit || {};
 
             // Validate every ID exists in items list
-            const validId = (id: any) => typeof id === 'string' && items.some(i => i.id === id);
+            const validId = (id: any) => typeof id === 'string' && itemsToUse.some(i => i.id === id);
             const categoryMap: Record<string, string> = {};
             if (validId(outfit.üstGiyim))  categoryMap['üstGiyim']  = outfit.üstGiyim;
             if (validId(outfit.altGiyim))  categoryMap['altGiyim']  = outfit.altGiyim;
@@ -721,9 +766,7 @@ SADECE JSON dön:
             return `data:${mime};base64,${buf.toString('base64')}`;
         };
 
-        const fashnCategory = category === 'Alt Giyim' ? 'bottoms'
-            : (category === 'Dış Giyim') ? 'one-pieces'
-            : 'tops';
+        const fashnCategory = category === 'Alt Giyim' ? 'bottoms' : 'tops';
 
         const [modelImage, garmentImage] = await Promise.all([
             prepareImage(personImageUrl),
@@ -760,11 +803,11 @@ SADECE JSON dön:
             });
             if (!statusRes.ok) continue;
             const { status, output, error } = await statusRes.json() as any;
-            this.logger.log(`[Fashn] status: ${status}`);
+            this.logger.log(`[Fashn] status: ${status} | output: ${JSON.stringify(output)}`);
             if (status === 'completed') {
-                const url = Array.isArray(output) ? output[0] : output;
-                if (url) return url;
-                throw new Error('No output URL from fashn.ai');
+                const url = Array.isArray(output) ? output[0] : (output?.url ?? output);
+                if (url && typeof url === 'string') return url;
+                throw new Error(`fashn.ai completed but no URL. output=${JSON.stringify(output)}`);
             }
             if (status === 'failed') throw new Error(`fashn.ai failed: ${JSON.stringify(error)}`);
         }
@@ -921,9 +964,7 @@ SADECE JSON dön:
             fal.storage.upload(new File([garmentBlob], 'garment.jpg', { type: 'image/jpeg' })),
         ]);
 
-        const clothType = category === 'Alt Giyim' ? 'lower'
-            : (category === 'Dış Giyim' || category === 'Aksesuar') ? 'overall'
-            : 'upper';
+        const clothType = category === 'Alt Giyim' ? 'lower' : 'upper';
 
         this.logger.log(`[Fal] Running CatVTON (cloth_type: ${clothType})...`);
         const result = await this.withTimeout(

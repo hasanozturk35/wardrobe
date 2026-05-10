@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Users, Plus, Sparkles, Globe, Lock, Link2, X, ExternalLink, Download, Cpu, Wand2 } from 'lucide-react';
+import { Trash2, Users, Plus, Sparkles, Globe, Lock, Link2, X, ExternalLink, Download, Cpu, Wand2, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getImageUrl } from '../config';
 import { api } from '../lib/api';
@@ -76,8 +76,21 @@ const LookbookPage: React.FC = () => {
     const [savingLinks, setSavingLinks] = useState(false);
     const [occasionPickerOutfitId, setOccasionPickerOutfitId] = useState<string | null>(null);
     const [selectedOccasion, setSelectedOccasion] = useState('');
+    const kombinlerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => { fetchOutfits(); }, []);
+    const scrollToKombinler = () => {
+        kombinlerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    useEffect(() => {
+        fetchOutfits().then(() => {
+            if (window.location.hash === '#kombinler') {
+                setTimeout(() => {
+                    kombinlerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 600);
+            }
+        });
+    }, []);
 
     const fetchOutfits = async () => {
         setFetchError(false);
@@ -216,12 +229,23 @@ const LookbookPage: React.FC = () => {
                                     <p className="text-[9px] font-mono uppercase tracking-[0.3em] text-gray-400 mt-1">Public</p>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => setIsDesignerOpen(true)}
-                                className="h-14 px-10 bg-[#1a1a1a] text-white rounded-full flex items-center gap-3 text-sm font-serif italic text-lg hover:bg-black hover:scale-[1.02] transition-all shadow-xl hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)]"
-                            >
-                                <Plus size={18} strokeWidth={1.5} /> Create Look
-                            </button>
+                            <div className="flex items-center gap-3">
+                                {regularOutfits.length > 0 && (
+                                    <button
+                                        onClick={scrollToKombinler}
+                                        className="h-14 px-8 bg-white border border-gray-200 text-gray-700 rounded-full flex items-center gap-3 text-sm font-serif italic hover:bg-gray-50 hover:border-gray-400 hover:scale-[1.02] transition-all shadow-sm"
+                                    >
+                                        <BookOpen size={16} strokeWidth={1.5} />
+                                        <span>Kombinler <span className="text-gray-400 font-mono text-xs not-italic">({regularOutfits.length})</span></span>
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setIsDesignerOpen(true)}
+                                    className="h-14 px-10 bg-[#1a1a1a] text-white rounded-full flex items-center gap-3 text-sm font-serif italic text-lg hover:bg-black hover:scale-[1.02] transition-all shadow-xl hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)]"
+                                >
+                                    <Plus size={18} strokeWidth={1.5} /> Create Look
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 </header>
@@ -417,6 +441,7 @@ const LookbookPage: React.FC = () => {
                     REGULAR OUTFITS SECTION
                 ══════════════════════════════════════════════════════════ */}
                 <motion.section
+                    ref={kombinlerRef}
                     initial={{ opacity: 0, y: 40 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: '-100px' }}
@@ -508,34 +533,45 @@ const LookbookPage: React.FC = () => {
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent pointer-events-none" />
                                 <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-transparent to-transparent pointer-events-none" />
 
-                                {/* Stamp */}
-                                <div className="absolute top-7 left-7 flex items-center gap-3 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full">
-                                    <span className="text-[9px] font-mono text-white/35 tracking-wider">01</span>
-                                    <span className="w-px h-3 bg-white/20" />
-                                    <span className="text-[9px] font-black uppercase tracking-[0.4em] text-white/70">Featured Look</span>
+                                {/* Editorial stamp — top left */}
+                                <div className="absolute top-8 left-8 flex items-center gap-0">
+                                    <div className="flex items-center gap-3 px-5 py-2.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-l-full">
+                                        <span className="text-[8px] font-black text-white/30 tracking-[0.5em] uppercase">No.</span>
+                                        <span className="text-[11px] font-serif italic text-white/60">01</span>
+                                    </div>
+                                    <div className="flex items-center px-5 py-2.5 bg-white/90 backdrop-blur-xl rounded-r-full shadow-xl">
+                                        <span className="text-[8px] font-black text-black uppercase tracking-[0.45em]">Featured Look</span>
+                                    </div>
                                 </div>
 
                                 {/* Actions — hover only */}
-                                <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                    <button onClick={e => openLinks(regularOutfits[0], e)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-lg backdrop-blur-md ${regularOutfits[0].productLinks?.length ? 'bg-amber-400 text-white' : 'bg-white/80 text-black'}`}><Link2 size={14} /></button>
-                                    <button onClick={e => handleToggleShare(regularOutfits[0].id, e)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-lg backdrop-blur-md ${regularOutfits[0].isPublic ? 'bg-black text-white' : 'bg-white/80 text-black'}`}><Users size={14} /></button>
-                                    <button onClick={e => handleDelete(regularOutfits[0].id, e)} className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-red-400 hover:bg-red-500 hover:text-white transition-all hover:scale-110 shadow-lg"><Trash2 size={14} /></button>
+                                <div className="absolute top-8 right-8 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <button onClick={e => openLinks(regularOutfits[0], e)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-xl backdrop-blur-md ${regularOutfits[0].productLinks?.length ? 'bg-amber-400 text-white' : 'bg-white/90 text-black'}`}><Link2 size={14} /></button>
+                                    <button onClick={e => handleToggleShare(regularOutfits[0].id, e)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-xl backdrop-blur-md ${regularOutfits[0].isPublic ? 'bg-black text-white' : 'bg-white/90 text-black'}`}><Users size={14} /></button>
+                                    <button onClick={e => handleDelete(regularOutfits[0].id, e)} className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center text-red-400 hover:bg-red-500 hover:text-white transition-all hover:scale-110 shadow-xl"><Trash2 size={14} /></button>
                                 </div>
 
-                                {/* Bottom — two-column editorial */}
+                                {/* Bottom — editorial two-column */}
                                 <div className="absolute bottom-0 inset-x-0 p-10 lg:p-14">
                                     <div className="flex items-end justify-between gap-6">
                                         <div>
-                                            <div className="flex flex-wrap gap-1.5 mb-5">
+                                            <div className="flex flex-wrap gap-1.5 mb-6">
                                                 {regularOutfits[0].items?.slice(0, 3).map((item, i) => (
-                                                    <span key={i} className="px-2.5 py-1 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full text-[8px] font-black text-white/80 uppercase tracking-widest">{item.garmentItem?.category || 'Piece'}</span>
+                                                    <span key={i} className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/15 rounded-full text-[7px] font-black text-white/60 uppercase tracking-[0.4em]">{item.garmentItem?.category || 'Piece'}</span>
                                                 ))}
                                             </div>
-                                            <h3 className="text-white font-serif text-4xl lg:text-5xl xl:text-6xl leading-none tracking-tight">{regularOutfits[0].name || 'Kombin'}</h3>
+                                            <div className="w-12 h-[0.5px] bg-white/25 mb-4" />
+                                            <h3 className="text-white font-serif text-5xl lg:text-6xl xl:text-7xl leading-[0.88] tracking-tight">{regularOutfits[0].name || 'Kombin'}</h3>
                                         </div>
-                                        <div className="shrink-0 text-right hidden sm:block">
-                                            <p className="text-white/40 text-[9px] font-mono uppercase tracking-[0.3em]">{regularOutfits[0].items.length} pieces</p>
-                                            <p className="text-white/25 text-[9px] font-mono uppercase tracking-[0.2em] mt-1">{formatDate(regularOutfits[0].createdAt)}</p>
+                                        <div className="shrink-0 text-right hidden sm:block space-y-2">
+                                            <p className="text-white/25 text-[8px] font-mono uppercase tracking-[0.4em]">{regularOutfits[0].items.length} pieces</p>
+                                            <p className="text-white/20 text-[8px] font-mono uppercase tracking-[0.3em]">{formatDate(regularOutfits[0].createdAt)}</p>
+                                            {regularOutfits[0].isPublic && (
+                                                <div className="flex items-center gap-1.5 justify-end">
+                                                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                                                    <span className="text-[7px] font-black text-white/40 uppercase tracking-[0.4em]">Public</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

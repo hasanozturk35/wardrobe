@@ -16,6 +16,10 @@ export class CreateItemDto {
 
   @IsString()
   @IsOptional()
+  gender?: string;
+
+  @IsString()
+  @IsOptional()
   imageUrl?: string;
 }
 

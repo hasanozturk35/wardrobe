@@ -1,8 +1,10 @@
-import { Controller, Post, UseInterceptors, UploadedFile, Param, Get, BadRequestException, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFile, Param, Get, BadRequestException, UseGuards } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { AuthGuard } from '@nestjs/passport';
 import { AssetsService } from './assets.service';
 
 @Controller('assets')
+@UseGuards(AuthGuard('jwt'))
 export class AssetsController {
   constructor(private readonly assetsService: AssetsService) { }
 

@@ -45,6 +45,7 @@ export class WardrobeService {
                 brand: data.brand,
                 colors: data.colors || [],
                 seasons: data.seasons || [],
+                gender: data.gender || 'Unisex',
                 photos: createPhotos.length > 0 ? {
                     create: createPhotos
                 } : undefined
@@ -102,6 +103,7 @@ export class WardrobeService {
                 brand: data.brand,
                 colors: data.colors,
                 seasons: data.seasons,
+                gender: data.gender,
                 meshUrl: data.meshUrl
             },
             include: { photos: true }

@@ -17,10 +17,11 @@ import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') || 'superSecretKey',
-        signOptions: { expiresIn: '15m' }, // Restricted to 15m as requested for hardened auth
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+        if (!secret) throw new Error('JWT_SECRET environment variable is not set');
+        return { secret, signOptions: { expiresIn: '15m' } };
+      },
     }),
   ],
   controllers: [AuthController],

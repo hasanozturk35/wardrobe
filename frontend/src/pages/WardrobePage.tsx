@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Plus, Search, Trash2, Heart, Bookmark, RefreshCw,
     Sparkles, Package, PlusCircle, User, X,
-    Wand2, Flame, Zap, Shirt, Loader2
+    Wand2, Flame, Zap, Shirt, Loader2, Edit2
 } from 'lucide-react';
 import { useWardrobeStore } from '../store/wardrobeStore';
 import { useUIStore } from '../store/uiStore';
@@ -15,18 +15,26 @@ import { AddItemModal } from '../components/wardrobe/AddItemModal';
 const CATEGORIES = ['Hepsi', 'Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'];
 
 const ALL_CITIES = [
-    { city: 'İstanbul',   style: 'Modern Minimalizm',   color: 'from-amber-500/20 to-orange-900/40',   accent: 'text-amber-200',   emoji: '🏙️' },
-    { city: 'Ankara',     style: 'Urban Elegance',      color: 'from-purple-500/20 to-indigo-900/40',  accent: 'text-purple-200',  emoji: '🏛️' },
-    { city: 'İzmir',      style: 'Akdeniz Şıklığı',     color: 'from-sky-500/20 to-blue-900/40',       accent: 'text-sky-200',     emoji: '🌊' },
-    { city: 'Antalya',    style: 'Sahil Bohemi',        color: 'from-emerald-500/20 to-teal-900/40',   accent: 'text-emerald-200', emoji: '🌴' },
-    { city: 'Bursa',      style: 'Klasik Sofistike',    color: 'from-stone-500/20 to-stone-900/40',    accent: 'text-stone-300',   emoji: '🏔️' },
-    { city: 'Adana',      style: 'Güney Dinamizmi',     color: 'from-orange-500/20 to-red-900/40',     accent: 'text-orange-200',  emoji: '☀️' },
-    { city: 'Trabzon',    style: 'Karadeniz Ruhu',      color: 'from-green-500/20 to-emerald-900/40',  accent: 'text-green-200',   emoji: '🌿' },
-    { city: 'Konya',      style: 'Anadolu Şıklığı',     color: 'from-yellow-500/20 to-amber-900/40',   accent: 'text-yellow-200',  emoji: '🌾' },
-    { city: 'Gaziantep',  style: 'Kentsel Klasik',      color: 'from-red-500/20 to-rose-900/40',       accent: 'text-red-200',     emoji: '🎭' },
-    { city: 'Eskişehir',  style: 'Genç Yaratıcı',       color: 'from-violet-500/20 to-purple-900/40',  accent: 'text-violet-200',  emoji: '🎨' },
-    { city: 'Mersin',     style: 'Akdeniz Bohemi',      color: 'from-cyan-500/20 to-blue-900/40',      accent: 'text-cyan-200',    emoji: '⛵' },
-    { city: 'Kayseri',    style: 'Orta Anadolu Stili',  color: 'from-rose-500/20 to-pink-900/40',      accent: 'text-rose-200',    emoji: '🏔️' },
+    { city: 'İstanbul',   style: 'Modern Minimalizm',    color: 'from-amber-500/20 to-orange-900/40',   accent: 'text-amber-200',   emoji: '🏙️' },
+    { city: 'Ankara',     style: 'Kentsel Şıklık',       color: 'from-purple-500/20 to-indigo-900/40',  accent: 'text-purple-200',  emoji: '🏛️' },
+    { city: 'İzmir',      style: 'Akdeniz Şıklığı',      color: 'from-sky-500/20 to-blue-900/40',       accent: 'text-sky-200',     emoji: '🌊' },
+    { city: 'Antalya',    style: 'Sahil Bohemi',         color: 'from-emerald-500/20 to-teal-900/40',   accent: 'text-emerald-200', emoji: '🌴' },
+    { city: 'Bursa',      style: 'Klasik Sofistike',     color: 'from-stone-500/20 to-stone-900/40',    accent: 'text-stone-300',   emoji: '🏔️' },
+    { city: 'Adana',      style: 'Güney Dinamizmi',      color: 'from-orange-500/20 to-red-900/40',     accent: 'text-orange-200',  emoji: '☀️' },
+    { city: 'Trabzon',    style: 'Karadeniz Ruhu',       color: 'from-green-500/20 to-emerald-900/40',  accent: 'text-green-200',   emoji: '🌿' },
+    { city: 'Samsun',     style: 'Sahil Dinamizmi',      color: 'from-teal-500/20 to-cyan-900/40',      accent: 'text-teal-200',    emoji: '🌊' },
+    { city: 'Amasya',     style: 'Tarihi Zarafet',       color: 'from-lime-500/20 to-green-900/40',     accent: 'text-lime-200',    emoji: '🏰' },
+    { city: 'Konya',      style: 'Anadolu Şıklığı',      color: 'from-yellow-500/20 to-amber-900/40',   accent: 'text-yellow-200',  emoji: '🌾' },
+    { city: 'Gaziantep',  style: 'Kentsel Klasik',       color: 'from-red-500/20 to-rose-900/40',       accent: 'text-red-200',     emoji: '🎭' },
+    { city: 'Eskişehir',  style: 'Genç Yaratıcı',        color: 'from-violet-500/20 to-purple-900/40',  accent: 'text-violet-200',  emoji: '🎨' },
+    { city: 'Mersin',     style: 'Akdeniz Bohemi',       color: 'from-cyan-500/20 to-blue-900/40',      accent: 'text-cyan-200',    emoji: '⛵' },
+    { city: 'Kayseri',    style: 'Orta Anadolu Stili',   color: 'from-rose-500/20 to-pink-900/40',      accent: 'text-rose-200',    emoji: '🏔️' },
+    { city: 'Diyarbakır', style: 'Güneydoğu Klasiği',   color: 'from-amber-600/20 to-yellow-900/40',   accent: 'text-amber-300',   emoji: '🏯' },
+    { city: 'Erzurum',    style: 'Doğu Minimalizmi',     color: 'from-blue-500/20 to-indigo-900/40',    accent: 'text-blue-200',    emoji: '❄️' },
+    { city: 'Bodrum',     style: 'Yaz Lüksü',            color: 'from-indigo-400/20 to-blue-800/40',    accent: 'text-indigo-200',  emoji: '⛵' },
+    { city: 'Çanakkale',  style: 'Tarihi Casual',        color: 'from-stone-400/20 to-slate-800/40',    accent: 'text-stone-200',   emoji: '🏛️' },
+    { city: 'Muğla',      style: 'Mavi Yolculuk',        color: 'from-sky-400/20 to-teal-800/40',       accent: 'text-sky-300',     emoji: '🌅' },
+    { city: 'Edirne',     style: 'Osmanlı Zarafeti',     color: 'from-fuchsia-500/20 to-purple-800/40', accent: 'text-fuchsia-200', emoji: '🕌' },
 ];
 
 
@@ -40,6 +48,7 @@ const WardrobePage: React.FC = () => {
     const [activeCategory,     setActiveCategory]     = useState('Hepsi');
     const [selectedItem,       setSelectedItem]       = useState<any>(null);
     const [isAddModalOpen,     setIsAddModalOpen]     = useState(false);
+    const [editingItem,        setEditingItem]        = useState<any>(null);
     const [userGender, setUserGender] = useState<'Erkek' | 'Kadın'>(() => (localStorage.getItem('userGender') as 'Erkek' | 'Kadın') || 'Erkek');
     const [favorites,          setFavorites]          = useState<Set<string>>(new Set());
     const [outfitItems,        setOutfitItems]        = useState<any[]>([]);
@@ -63,6 +72,7 @@ const WardrobePage: React.FC = () => {
     const [tryOnFullscreen,    setTryOnFullscreen]    = useState(false);
     const [tryOnStep,          setTryOnStep]          = useState(0);
     const [savingToLookbook,   setSavingToLookbook]   = useState(false);
+    const [savingAiOutfit,     setSavingAiOutfit]     = useState(false);
     const selfieInputRef = useRef<HTMLInputElement>(null);
 
     // AI Outfit
@@ -203,6 +213,28 @@ const WardrobePage: React.FC = () => {
         showToast('Orijinal fotoğrafa döndü.');
     };
 
+    const saveAiOutfit = async () => {
+        if (!aiOutfitCards.length) return;
+        setSavingAiOutfit(true);
+        try {
+            const token = localStorage.getItem('token');
+            await fetch(`${API_URL}/outfits`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: `Kombin ${new Date().toLocaleDateString('tr')}`,
+                    items: aiOutfitCards.map(i => ({ garmentItemId: i.id })),
+                }),
+            });
+            showToast('Kombin Lookbook\'a kaydedildi! 🎉');
+            navigate('/lookbook#kombinler');
+        } catch {
+            showToast('Kaydetme başarısız.', 'error');
+        } finally {
+            setSavingAiOutfit(false);
+        }
+    };
+
     const saveTryOnToLookbook = async (itemName?: string) => {
         if (!tryOnResult?.imageUrl) return;
         setSavingToLookbook(true);
@@ -252,10 +284,15 @@ const WardrobePage: React.FC = () => {
         const city  = cityOverride  ?? activeCity.city;
         const style = styleOverride ?? activeCity.style;
         const token = localStorage.getItem('token');
+        // Frontend'de de cinsiyet filtrele — sadece uyumlu parçaları gönder
+        const genderItems = items.filter((i: any) =>
+            !i.gender || i.gender === 'Unisex' || i.gender === userGender
+        );
+        const itemsToSend = genderItems.length >= 2 ? genderItems : items;
         fetch(`${API_URL}/ai/generate-outfit-from-list`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ items, city, style, gender: userGender }),
+            body: JSON.stringify({ items: itemsToSend, city, style, gender: userGender }),
         })
         .then(r => r.json())
         .then(data => {
@@ -277,12 +314,13 @@ const WardrobePage: React.FC = () => {
             if (typeof data.wearOuterwear === 'boolean') setWearOuterwear(data.wearOuterwear);
         })
         .catch(() => {
-            const tops    = items.filter(i => i.category === 'Üst Giyim');
-            const bottoms = items.filter(i => i.category === 'Alt Giyim');
-            const extras  = items.filter(i => ['Ayakkabı','Dış Giyim','Aksesuar'].includes(i.category));
+            const tops    = itemsToSend.filter((i: any) => i.category === 'Üst Giyim');
+            const bottoms = itemsToSend.filter((i: any) => i.category === 'Alt Giyim');
+            const extras  = itemsToSend.filter((i: any) => ['Ayakkabı','Dış Giyim','Aksesuar'].includes(i.category));
+            const pool    = itemsToSend;
             const pick = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)];
-            const combo = [pick(tops.length ? tops : items), pick(bottoms.length ? bottoms : items), pick(extras.length ? extras : items)].filter(Boolean);
-            setAiOutfitCards(Array.from(new Map(combo.map(i => [i.id, i])).values()).slice(0, 3));
+            const combo = [pick(tops.length ? tops : pool), pick(bottoms.length ? bottoms : pool), pick(extras.length ? extras : pool)].filter(Boolean);
+            setAiOutfitCards(Array.from(new Map(combo.map((i: any) => [i.id, i])).values()).slice(0, 3));
             setAiExplanation(`Dolabını analiz ettim. Bu kombin ${activeCity.style} aurasıyla kusursuz uyum sağlıyor.`);
         });
     };
@@ -321,17 +359,17 @@ const WardrobePage: React.FC = () => {
                         transition={{ duration: 0.5 }}
                         className="flex items-center justify-between mb-16 gap-4"
                     >
-                        <div className="flex items-center gap-3 px-4 py-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-full shadow-sm">
+                        <div className="flex items-center gap-3 px-5 py-2.5 bg-white/70 backdrop-blur-xl border border-white/80 rounded-[1.5rem] shadow-sm">
                             <div className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />
-                            <span className="text-[9px] font-mono uppercase tracking-[0.4em] text-gray-500">Dijital Koleksiyon</span>
+                            <span className="text-[9px] font-black uppercase tracking-[0.5em] text-gray-500 font-serif">Dijital Koleksiyon</span>
                         </div>
                         <div className="flex items-center gap-3 lg:gap-4">
-                            <div className="flex items-center bg-white/60 backdrop-blur-xl border border-white/80 rounded-full px-5 py-2.5 shadow-sm hover:shadow-md transition-all group">
-                                <Search className="text-gray-400 group-focus-within:text-black transition-colors mr-3 shrink-0" size={15} />
+                            <div className="flex items-center bg-white/70 backdrop-blur-xl border border-white/80 rounded-[1.5rem] px-6 py-3 shadow-sm hover:shadow-md transition-all group">
+                                <Search className="text-gray-400 group-focus-within:text-black transition-colors mr-3 shrink-0" size={14} />
                                 <input
                                     type="text"
                                     placeholder="Koleksiyonda ara..."
-                                    className="w-40 lg:w-56 bg-transparent text-sm outline-none font-serif italic placeholder:text-gray-400"
+                                    className="w-40 lg:w-56 bg-transparent text-sm outline-none font-serif italic placeholder:text-gray-300 text-gray-800"
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                 />
@@ -342,13 +380,17 @@ const WardrobePage: React.FC = () => {
                                     setUserGender(next);
                                     localStorage.setItem('userGender', next);
                                 }}
-                                className="hidden lg:flex items-center gap-2 px-5 py-2.5 bg-white/60 backdrop-blur-xl border border-white/80 hover:border-black/30 text-gray-700 rounded-full text-sm font-medium transition-all shadow-sm hover:shadow-md"
+                                className="hidden lg:flex items-center gap-2 px-6 py-3 bg-white/70 backdrop-blur-xl border border-white/80 hover:border-black/20 text-gray-700 rounded-[1.5rem] text-[11px] font-black uppercase tracking-[0.3em] transition-all shadow-sm hover:shadow-md"
                                 title="AI önerileri için cinsiyet"
                             >
                                 {userGender === 'Erkek' ? '♂ Erkek' : '♀ Kadın'}
                             </button>
-                            <button onClick={() => setIsOutfitBuilderOpen(!isOutfitBuilderOpen)} className="hidden lg:flex items-center gap-2 px-6 py-2.5 bg-white/60 backdrop-blur-xl border border-white/80 hover:border-black/30 text-gray-700 rounded-full text-sm font-medium transition-all shadow-sm hover:shadow-md group">
-                                <Wand2 size={15} className="group-hover:rotate-12 transition-transform" /> Stüdyo
+                            <button
+                                onClick={() => setIsOutfitBuilderOpen(!isOutfitBuilderOpen)}
+                                className="hidden lg:flex items-center gap-3 px-7 py-3 bg-black text-white rounded-[1.5rem] text-[11px] font-black uppercase tracking-[0.3em] transition-all shadow-lg hover:shadow-xl hover:scale-[1.03] group"
+                            >
+                                <Wand2 size={14} className="group-hover:rotate-12 transition-transform" />
+                                <span className="font-serif italic text-sm tracking-wide">Stüdyo</span>
                             </button>
                         </div>
                     </motion.div>
@@ -707,10 +749,21 @@ const WardrobePage: React.FC = () => {
                                         </p>
                                     </div>
 
-                                    <div className="flex items-center gap-3 mt-10">
+                                    <div className="flex items-center gap-3 mt-10 flex-wrap">
                                         <button onClick={() => setIsAIFullscreen(true)}
                                             className="flex items-center gap-2.5 px-7 py-3.5 bg-[#1a1410] text-white rounded-full text-[9px] font-black uppercase tracking-[0.35em] hover:scale-[1.04] transition-all shadow-[0_12px_40px_rgba(26,20,16,0.25)]">
                                             <Wand2 size={14} /> Stüdyoyu Aç
+                                        </button>
+                                        <button
+                                            onClick={saveAiOutfit}
+                                            disabled={savingAiOutfit || aiOutfitCards.length === 0}
+                                            className="flex items-center gap-2 px-5 py-3.5 bg-white border border-[#d0c8be] rounded-full text-[9px] font-black uppercase tracking-[0.35em] text-[#1a1410] hover:bg-[#1a1410] hover:text-white hover:border-[#1a1410] transition-all disabled:opacity-40"
+                                            title="Bu kombini Lookbook'a kaydet"
+                                        >
+                                            {savingAiOutfit
+                                                ? <><RefreshCw size={13} className="animate-spin" /> Kaydediliyor...</>
+                                                : <><Bookmark size={13} /> Lookbook'a Kaydet</>
+                                            }
                                         </button>
                                         <button onClick={() => generateOutfit()}
                                             className="w-12 h-12 rounded-full border border-[#d0c8be] bg-white/50 flex items-center justify-center hover:bg-[#1a1410] hover:text-white hover:border-[#1a1410] transition-all group"
@@ -1063,14 +1116,17 @@ const WardrobePage: React.FC = () => {
                                             </div>
                                             {/* Actions */}
                                             <div className="pt-8 border-t border-gray-200">
-                                                <div className="flex gap-4">
+                                                <div className="flex gap-3">
                                                     <button onClick={() => { toggleFavorite({ stopPropagation: () => {} } as any, selectedItem.id); }} className="flex-1 h-14 border border-gray-200 rounded-full flex items-center justify-center gap-2 text-sm text-gray-600 hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-all">
                                                         <Heart size={18} className={favorites.has(selectedItem.id) ? 'fill-[#1a1a1a] text-[#1a1a1a]' : ''} /> Favori
                                                     </button>
                                                     <button onClick={() => { addToOutfit({ stopPropagation: () => {} } as any, selectedItem); setSelectedItem(null); }} className="flex-1 h-14 border border-gray-200 rounded-full flex items-center justify-center gap-2 text-sm text-gray-600 hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-all">
                                                         <PlusCircle size={18} /> Kombine Ekle
                                                     </button>
-                                                    <button onClick={() => handleDelete(selectedItem.id)} className="w-14 h-14 border border-gray-200 text-red-400 rounded-full flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-all">
+                                                    <button onClick={() => { setEditingItem(selectedItem); setSelectedItem(null); setIsAddModalOpen(true); }} className="w-14 h-14 border border-gray-200 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-50 hover:border-[#1a1a1a] hover:text-[#1a1a1a] transition-all" title="Düzenle">
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(selectedItem.id)} className="w-14 h-14 border border-gray-200 text-red-400 rounded-full flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-all" title="Sil">
                                                         <Trash2 size={18} />
                                                     </button>
                                                 </div>
@@ -1380,7 +1436,7 @@ const WardrobePage: React.FC = () => {
                 <span className="absolute inset-0 rounded-full animate-ping bg-[#1a1a1a]/15 pointer-events-none" style={{ animationDuration: '3.5s' }} />
             </motion.button>
 
-            <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSuccess={() => fetchItems()} editItem={null} />
+            <AddItemModal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setEditingItem(null); }} onSuccess={() => { fetchItems(); setEditingItem(null); }} editItem={editingItem} />
 
             <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
         </div>

@@ -23,7 +23,6 @@ const AvatarOnboarding: React.FC = () => {
       }
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Upload failed. Please try again.');
     } finally {
       setLoading(false);
     }

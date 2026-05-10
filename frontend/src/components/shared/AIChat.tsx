@@ -61,7 +61,8 @@ export const AIChat: React.FC = () => {
         setIsTyping(true);
 
         try {
-            const response = await api.post('/ai/chat', { message: text });
+            const gender = localStorage.getItem('userGender') || 'Unisex';
+            const response = await api.post('/ai/chat', { message: text, gender });
 
             if (response.status === 200 || response.status === 201) {
                 const data = response.data;

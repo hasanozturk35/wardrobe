@@ -373,7 +373,7 @@ const AnalyticsPage: React.FC = () => {
                                                         transition={{ delay: 0.5 + idx * 0.08, type: 'spring', stiffness: 260, damping: 22 }}
                                                         className="w-28 h-28 rounded-[1.8rem] bg-gray-50 flex items-center justify-center group-hover:bg-[#1a1410] group-hover:text-white transition-all duration-500 cursor-default"
                                                     >
-                                                        <p className="text-4xl font-serif">{count}</p>
+                                                        <p className="text-4xl font-bold tabular-nums" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>{count}</p>
                                                     </motion.div>
                                                     <div className="absolute -top-2 -right-2 w-10 h-10 bg-white border border-gray-100 rounded-full flex items-center justify-center text-[9px] font-black text-gray-500 shadow-sm">
                                                         {pct}%

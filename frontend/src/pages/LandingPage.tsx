@@ -77,42 +77,94 @@ const LandingPage: React.FC = () => {
                 />
                 <div className="absolute inset-0 bg-black/50" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white px-8">
+                    {/* Edition tag */}
                     <motion.div
-                        initial={{ opacity: 0, y: 30 }}
+                        initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 1, delay: 0.4 }}
-                        className="flex items-center gap-4 mb-8"
+                        transition={{ duration: 0.8, delay: 0.3 }}
+                        className="flex items-center gap-5 mb-10"
                     >
-                        <span className="w-12 h-[1px] bg-white/40" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.6em] text-white/60">Paris • Milan • Tokyo</span>
-                        <span className="w-12 h-[1px] bg-white/40" />
+                        <span className="w-14 h-[0.5px] bg-white/30" />
+                        <div className="flex items-center gap-3 px-5 py-2 border border-white/20 rounded-full backdrop-blur-md bg-white/5">
+                            <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
+                            <span className="text-[9px] font-black uppercase tracking-[0.55em] text-white/50">AI · Moda · 2026</span>
+                        </div>
+                        <span className="w-14 h-[0.5px] bg-white/30" />
                     </motion.div>
+
+                    {/* Main headline */}
                     <motion.h1
                         initial={{ opacity: 0, scale: 0.96 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 1.5, delay: 0.2 }}
-                        className="text-7xl md:text-[11rem] font-serif font-light leading-[0.88] tracking-tightest mb-12"
+                        className="text-7xl md:text-[11rem] font-serif font-light leading-[0.88] tracking-tightest mb-6"
                     >
                         Moda <br />
                         <span className="italic font-normal text-white/70">Yapay Zeka <br />Devrimi.</span>
                     </motion.h1>
+
+                    {/* Decorative separator */}
+                    <motion.div
+                        initial={{ opacity: 0, scaleX: 0 }}
+                        animate={{ opacity: 1, scaleX: 1 }}
+                        transition={{ duration: 1, delay: 0.9 }}
+                        className="flex items-center gap-6 mb-8"
+                    >
+                        <span className="w-16 h-[0.5px] bg-white/20" />
+                        <span className="text-[8px] font-black uppercase tracking-[0.6em] text-white/25">Maison Wardrobe</span>
+                        <span className="w-16 h-[0.5px] bg-white/20" />
+                    </motion.div>
+
+                    {/* Subtitle */}
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 1, delay: 0.8 }}
-                        className="text-lg md:text-2xl font-serif italic text-white/60 max-w-xl leading-relaxed mb-16"
+                        transition={{ duration: 1, delay: 1 }}
+                        className="text-base md:text-xl font-serif italic text-white/50 max-w-lg leading-relaxed mb-12"
                     >
-                        Gardırobunuzu yapay zeka ile profesyonel bir dijital arşive dönüştürün.
+                        Kıyafetlerinizi, stilinizi ve kimliğinizi yapay zeka ile<br/>
+                        profesyonel bir dijital arşive dönüştürün.
                     </motion.p>
-                    <motion.button
+
+                    {/* CTA buttons */}
+                    <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 1, delay: 1.1 }}
-                        onClick={() => navigate('/auth')}
-                        className="px-14 py-5 border border-white/40 text-white text-[10px] font-black uppercase tracking-[0.5em] hover:bg-white hover:text-black transition-all duration-500 rounded-full"
+                        transition={{ duration: 1, delay: 1.2 }}
+                        className="flex items-center gap-4 mb-16"
                     >
-                        Keşfetmeye Başla
-                    </motion.button>
+                        <button
+                            onClick={() => navigate('/auth')}
+                            className="px-12 py-4 bg-white text-black text-[9px] font-black uppercase tracking-[0.5em] hover:scale-105 transition-all duration-300 rounded-full shadow-2xl"
+                        >
+                            Keşfetmeye Başla
+                        </button>
+                        <button
+                            onClick={() => navigate('/auth')}
+                            className="px-10 py-4 border border-white/25 text-white/60 text-[9px] font-black uppercase tracking-[0.4em] hover:border-white/50 hover:text-white transition-all duration-300 rounded-full backdrop-blur-md"
+                        >
+                            Giriş Yap
+                        </button>
+                    </motion.div>
+
+                    {/* Stats strip */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 1.5 }}
+                        className="flex items-center gap-10 border-t border-white/10 pt-8"
+                    >
+                        {[
+                            { num: '3D', label: 'Avatar Sistemi' },
+                            { num: 'AI', label: 'Stil Danışmanı' },
+                            { num: '∞', label: 'Kombin Olasılığı' },
+                        ].map((s, i) => (
+                            <div key={i} className="text-center">
+                                <p className="text-2xl font-serif text-white/70 leading-none mb-1">{s.num}</p>
+                                <p className="text-[7px] font-black uppercase tracking-[0.45em] text-white/25">{s.label}</p>
+                            </div>
+                        ))}
+                    </motion.div>
                 </div>
                 {/* Scroll down indicator */}
                 <motion.div

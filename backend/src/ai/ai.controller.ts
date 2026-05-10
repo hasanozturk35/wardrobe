@@ -18,9 +18,10 @@ export class AiController {
         message: string;
         imageBase64?: string;
         history?: { role: 'user' | 'assistant'; content: string }[];
+        gender?: string;
     }) {
         const result = await this.aiService.getStylistResponse(
-            req.user.userId, body.message, body.imageBase64, body.history
+            req.user.userId, body.message, body.imageBase64, body.history, body.gender
         );
         return result;
     }

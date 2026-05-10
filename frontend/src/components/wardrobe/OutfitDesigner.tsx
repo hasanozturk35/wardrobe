@@ -124,10 +124,17 @@ export const OutfitDesigner: React.FC<OutfitDesignerProps> = ({ isOpen, onClose,
 
                 {/* ── Right: Cover photo upload ────────────────────────── */}
                 <div className="flex-1 flex flex-col bg-[#F9F9F9] relative">
-                    <button onClick={onClose}
-                        className="absolute top-6 right-6 z-10 w-11 h-11 bg-white rounded-2xl flex items-center justify-center shadow-sm hover:bg-gray-50 transition-colors">
-                        <X size={20} />
-                    </button>
+                    <div className="absolute top-6 right-6 z-10 flex items-center gap-3">
+                        <button onClick={handleSave} disabled={!canSave}
+                            className={`flex items-center gap-2 px-5 h-11 rounded-2xl text-sm font-serif italic transition-all ${canSave ? 'bg-black text-white shadow-lg hover:scale-105 active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                            <Save size={15} />
+                            {loading ? 'Kaydediliyor...' : 'Kaydet'}
+                        </button>
+                        <button onClick={onClose}
+                            className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center shadow-sm hover:bg-gray-50 transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
 
                     {/* Upload area */}
                     <div className="flex-1 flex flex-col items-center justify-center p-10 gap-6">

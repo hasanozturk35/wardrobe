@@ -7,9 +7,7 @@ export class AdminGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    const isAdminByEmail = user?.email?.toLowerCase().startsWith('admin@');
-    
-    if (!user || (user.role !== UserRole.ADMIN && !isAdminByEmail)) {
+    if (!user || user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Bu işlem için yönetici yetkisi gereklidir.');
     }
 

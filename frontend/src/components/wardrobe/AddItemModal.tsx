@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, Check, Sparkles } from 'lucide-react';
 import { API_URL } from '../../config';
+import { useUIStore } from '../../store/uiStore';
 
 interface AddItemModalProps {
     isOpen: boolean;
@@ -10,15 +11,22 @@ interface AddItemModalProps {
 }
 
 const CATEGORIES = ['Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'];
-const COLORS = ['Siyah', 'Beyaz', 'Lacivert', 'Gri', 'Bej', 'Kırmızı', 'Mavi', 'Yeşil'];
+const COLORS = ['Siyah', 'Beyaz', 'Lacivert', 'Gri', 'Vizon', 'Bej', 'Camel', 'Kahverengi', 'Kırmızı', 'Bordo', 'Mavi', 'Yeşil', 'Sarı', 'Turuncu', 'Pembe', 'Mor'];
 const SEASONS = ['İlkbahar', 'Yaz', 'Sonbahar', 'Kış'];
+const GENDERS = [
+    { value: 'Erkek',  label: '♂ Erkek' },
+    { value: 'Kadın',  label: '♀ Kadın' },
+    { value: 'Unisex', label: '⚤ Unisex' },
+];
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onSuccess, editItem }) => {
+    const { showToast } = useUIStore();
     const [formData, setFormData] = useState({
         category: 'Üst Giyim',
         brand: '',
         colors: [] as string[],
-        seasons: [] as string[]
+        seasons: [] as string[],
+        gender: (localStorage.getItem('userGender') || 'Unisex') as string,
     });
     const [images, setImages] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
@@ -32,15 +40,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
                 category: editItem.category || 'Üst Giyim',
                 brand: editItem.brand || '',
                 colors: editItem.colors || [],
-                seasons: editItem.seasons || []
+                seasons: editItem.seasons || [],
+                gender: editItem.gender || localStorage.getItem('userGender') || 'Unisex',
             });
-            // Photos stay as images array for potential new uploads
         } else if (!editItem && isOpen) {
             setFormData({
                 category: 'Üst Giyim',
                 brand: '',
                 colors: [],
-                seasons: []
+                seasons: [],
+                gender: localStorage.getItem('userGender') || 'Unisex',
             });
             setImages([]);
             setPreviews([]);
@@ -117,40 +126,52 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
         }));
     };
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
             const token = localStorage.getItem('token');
-            const data = new FormData();
-            data.append('category', formData.category);
-            data.append('brand', formData.brand);
-            formData.colors.forEach(c => data.append('colors', c));
-            formData.seasons.forEach(s => data.append('seasons', s));
-            images.forEach(img => data.append('photos', img));
 
-            const url = editItem 
-                ? `${API_URL}/wardrobe/items/${editItem.id}` 
-                : `${API_URL}/wardrobe/items`;
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                body: data
-            });
-
-            if (response.ok) {
-                onSuccess();
-                onClose();
+            if (editItem) {
+                // Edit: JSON gönder (FilesInterceptor yok, multipart parse edilmez)
+                const response = await fetch(`${API_URL}/wardrobe/items/${editItem.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        category: formData.category,
+                        brand: formData.brand,
+                        gender: formData.gender,
+                        colors: formData.colors,
+                        seasons: formData.seasons,
+                    }),
+                });
+                if (response.ok) { onSuccess(); onClose(); }
+                else { showToast('Güncelleme sırasında bir hata oluştu.', 'error'); }
             } else {
-                alert('İşlem sırasında bir hata oluştu.');
+                // Yeni ekleme: FormData (foto yükleme gerekli)
+                const data = new FormData();
+                data.append('category', formData.category);
+                data.append('brand', formData.brand);
+                data.append('gender', formData.gender);
+                formData.colors.forEach(c => data.append('colors', c));
+                formData.seasons.forEach(s => data.append('seasons', s));
+                images.forEach(img => data.append('photos', img));
+
+                const response = await fetch(`${API_URL}/wardrobe/items`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: data,
+                });
+                if (response.ok) { onSuccess(); onClose(); }
+                else { showToast('Ekleme sırasında bir hata oluştu.', 'error'); }
             }
         } catch (error) {
             console.error('Operation failed:', error);
-            alert('Sunucuya bağlanılamadı.');
+            showToast('Sunucuya bağlanılamadı.', 'error');
         } finally {
             setLoading(false);
         }
@@ -224,6 +245,26 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
                     </div>
 
                     <div className="space-y-6 flex-1">
+                        {/* Gender */}
+                        <div>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Cinsiyet</label>
+                            <div className="flex gap-2">
+                                {GENDERS.map(g => (
+                                    <button
+                                        key={g.value}
+                                        type="button"
+                                        onClick={() => setFormData(p => ({ ...p, gender: g.value }))}
+                                        className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${formData.gender === g.value
+                                            ? 'bg-black text-white shadow-lg shadow-black/20'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {g.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         {/* Category */}
                         <div>
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Kategori</label>

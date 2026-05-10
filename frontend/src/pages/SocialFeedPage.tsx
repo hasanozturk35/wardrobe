@@ -104,7 +104,8 @@ const SocialFeedPage: React.FC = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) setFeed(await res.json());
-        } catch (e) { console.error(e); }
+            else showToast('Akış yüklenemedi.', 'error');
+        } catch { showToast('Bağlantı hatası.', 'error'); }
         finally { setLoading(false); }
     };
 
@@ -115,7 +116,7 @@ const SocialFeedPage: React.FC = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) setComments(await res.json());
-        } catch (e) { console.error(e); }
+        } catch { /* yorum yüklenemedi — sessiz hata */ }
     };
 
     useEffect(() => {
@@ -159,18 +160,20 @@ const SocialFeedPage: React.FC = () => {
     };
 
     const handleFollowUser = async (userId: string) => {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/users/${userId}/follow`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setFollowingUsers(prev => {
-            const n = new Set(prev);
-            data.following ? n.add(userId) : n.delete(userId);
-            return n;
-        });
-        showToast(data.following ? 'Takip edildi.' : 'Takipten çıkıldı.');
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/users/${userId}/follow`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            setFollowingUsers(prev => {
+                const n = new Set(prev);
+                data.following ? n.add(userId) : n.delete(userId);
+                return n;
+            });
+            showToast(data.following ? 'Takip edildi.' : 'Takipten çıkıldı.');
+        } catch { showToast('İşlem başarısız.', 'error'); }
     };
 
     const handleAddComment = async () => {
@@ -184,7 +187,8 @@ const SocialFeedPage: React.FC = () => {
                 body: JSON.stringify({ content: newComment.trim() })
             });
             if (res.ok) setNewComment('');
-        } catch (e) { console.error(e); }
+            else showToast('Yorum gönderilemedi.', 'error');
+        } catch { showToast('Bağlantı hatası.', 'error'); }
         finally { setSubmittingComment(false); }
     };
 
@@ -203,12 +207,17 @@ const SocialFeedPage: React.FC = () => {
                 <header className="flex items-center justify-between mb-8 px-2">
                     <div className="w-10" />
                     <div className="text-center">
-                        <h1 className="text-5xl lg:text-6xl font-light font-serif text-gray-900 tracking-tight leading-none">Community</h1>
-                        <p className="text-[9px] font-mono uppercase tracking-[0.4em] text-gray-400 mt-2">Türkiye'den stil ilhamı</p>
+                        <p className="text-[8px] font-black uppercase tracking-[0.6em] text-gray-300 mb-3 flex items-center justify-center gap-3">
+                            <span className="w-6 h-px bg-gray-200 inline-block" />
+                            Stil Topluluğu
+                            <span className="w-6 h-px bg-gray-200 inline-block" />
+                        </p>
+                        <h1 className="text-5xl lg:text-6xl font-light font-serif text-gray-900 tracking-tight leading-none">Vitrin<span className="italic text-gray-300">.</span></h1>
+                        <p className="text-[9px] font-mono uppercase tracking-[0.45em] text-gray-300 mt-2">İlham · Stil · Kimlik</p>
                     </div>
                     <button onClick={() => navigate('/lookbook')}
-                        className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:border-black transition-all">
-                        <Plus size={18} className="text-gray-900" strokeWidth={1.5} />
+                        className="w-10 h-10 bg-black rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all">
+                        <Plus size={18} className="text-white" strokeWidth={2} />
                     </button>
                 </header>
 

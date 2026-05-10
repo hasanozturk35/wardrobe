@@ -138,7 +138,7 @@ export class WardrobeController {
         return this.wardrobeService.deleteItem(req.user.userId, id);
     }
 
-    @Post('items/:id') // Using POST for update if multipart/form-data is used, or PATCH for JSON
+    @Post('items/:id')
     async updateItem(
         @Request() req: { user: { userId: string } },
         @Param('id') id: string,
@@ -150,7 +150,8 @@ export class WardrobeController {
         return this.wardrobeService.updateItem(req.user.userId, id, {
             ...body,
             colors,
-            seasons
+            seasons,
+            gender: body.gender,
         });
     }
 }

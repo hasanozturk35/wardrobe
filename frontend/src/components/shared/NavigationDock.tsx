@@ -9,9 +9,9 @@ const navItems = [
     { icon: Layout, label: 'Lookbook', path: '/lookbook' },
     { icon: Sparkles, label: 'Studio', path: '/studio' },
     { icon: Compass, label: 'Discover', path: '/discover' },
-    { icon: Users, label: 'Feed', path: '/feed' },
+    { icon: Users, label: 'Vitrin', path: '/feed' },
     { icon: BarChart3, label: 'Insights', path: '/analytics' },
-    { icon: UserCircle, label: 'Avatar', path: '/avatar/profile' },
+    { icon: UserCircle, label: 'Asistan', path: '/avatar/profile' },
     { icon: User, label: 'Profile', path: '/profile' },
     { icon: ShieldCheck, label: 'Admin', path: '/admin', adminOnly: true },
 ];
@@ -26,9 +26,7 @@ export const NavigationDock: React.FC = () => {
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] w-full max-w-fit px-6">
             <div className="bg-white/80 backdrop-blur-3xl border border-white/60 rounded-[3rem] px-3 py-2 shadow-[0_30px_60px_rgba(0,0,0,0.15)] flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                 {navItems.map((item) => {
-                    // Force admin visibility if email starts with admin@
-                    const isAdminByEmail = user?.email?.toLowerCase().startsWith('admin@');
-                    const hasAdminAccess = user?.role === 'ADMIN' || isAdminByEmail;
+                    const hasAdminAccess = user?.role === 'ADMIN';
 
                     if (item.adminOnly && !hasAdminAccess) return null;
                     const isActive = location.pathname === item.path;
