@@ -4,7 +4,26 @@ import { AppModule } from './app.module';
 import { LoggingInterceptor } from './common/logger.interceptor';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 
+const REQUIRED_ENV_VARS = [
+  'DATABASE_URL',
+  'JWT_SECRET',
+  'JWT_REFRESH_SECRET',
+  'FRONTEND_URL',
+];
+
+function validateEnv() {
+  const missing = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
+  if (missing.length > 0) {
+    console.error('\n❌ MISSING REQUIRED ENV VARS — App cannot start:');
+    missing.forEach(v => console.error(`   • ${v}`));
+    console.error('\nAdd these to Railway → Variables tab, then redeploy.\n');
+    process.exit(1);
+  }
+}
+
 async function bootstrap() {
+  validateEnv();
+
   const app = await NestFactory.create(AppModule, { bodyParser: false });
 
   const rawOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(o => o.trim());

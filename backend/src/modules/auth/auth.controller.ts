@@ -1,12 +1,16 @@
 import { Controller, Post, Get, Body, HttpCode, HttpStatus, Req, Res, BadRequestException, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import * as express from 'express';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './auth.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) { }
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto, @Req() req: any) {
@@ -70,7 +74,8 @@ export class AuthController {
     
     // Redirect back to frontend with tokens in URL (Simplest for MVP)
     // Or set as a cookie. For now, we'll redirect to a callback page on frontend
-    const redirectUrl = `http://localhost:5173/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`;
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    const redirectUrl = `${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`;
     return res.redirect(redirectUrl);
   }
 }
