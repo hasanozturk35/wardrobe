@@ -91,13 +91,13 @@ export class SocialService {
         return comment;
     }
 
-    async getComments(outfitId: string) {
+    async getComments(outfitId: string, take = 20, skip = 0) {
         return this.prisma.comment.findMany({
             where: { outfitId },
-            include: {
-                user: { select: { id: true, name: true, avatarUrl: true } }
-            },
-            orderBy: { createdAt: 'desc' }
+            include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+            orderBy: { createdAt: 'desc' },
+            take,
+            skip,
         });
     }
 }

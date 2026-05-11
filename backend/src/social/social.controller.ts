@@ -26,8 +26,12 @@ export class SocialController {
 
     @Get('comments/:id')
     @UseGuards(AuthGuard('jwt'))
-    getComments(@Param('id') outfitId: string) {
-        return this.socialService.getComments(outfitId);
+    getComments(
+        @Param('id') outfitId: string,
+        @Query('take') take?: string,
+        @Query('skip') skip?: string,
+    ) {
+        return this.socialService.getComments(outfitId, take ? +take : 20, skip ? +skip : 0);
     }
 
     @Post('comments/:id')

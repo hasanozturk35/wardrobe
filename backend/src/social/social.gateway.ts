@@ -1,10 +1,15 @@
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 
-@WebSocketGateway({ cors: { origin: '*' } })
+@WebSocketGateway({
+    cors: {
+        origin: (process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map(o => o.trim()),
+        credentials: true,
+    },
+})
 export class SocialGateway {
     @WebSocketServer()
-    server: Server;
+    server!: Server;
 
     emitNewPost(post: any) {
         this.server.emit('new-post', post);

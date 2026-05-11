@@ -32,7 +32,7 @@ const AdminDashboard: React.FC = () => {
     const [logLevel,     setLogLevel]     = useState('all');
     const [userSearch,   setUserSearch]   = useState('');
 
-    const isAdmin = user?.role === 'ADMIN' || user?.email?.toLowerCase().startsWith('admin@');
+    const isAdmin = user?.role === 'ADMIN';
 
     if (!isAdmin) {
         return (

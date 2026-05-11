@@ -31,8 +31,8 @@ const AuthPage: React.FC = () => {
             } else {
                 const endpoint = isLogin ? '/auth/login' : '/auth/register';
                 const res = await api.post(endpoint, formData);
-                const { accessToken, user } = res.data;
-                setAuth(accessToken, user);
+                const { accessToken, refreshToken, user } = res.data;
+                setAuth(accessToken, user, refreshToken);
                 window.location.replace('/wardrobe');
             }
         } catch (err: any) {
