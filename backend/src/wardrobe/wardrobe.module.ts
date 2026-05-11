@@ -3,9 +3,10 @@ import { WardrobeController } from './wardrobe.controller';
 import { WardrobeService } from './wardrobe.service';
 import { AuthModule } from '../modules/auth/auth.module';
 import { AiModule } from '../ai/ai.module';
+import { StorageModule } from '../infrastructure/storage/storage.module';
 
 @Module({
-    imports: [AuthModule, AiModule],
+    imports: [AuthModule, AiModule, StorageModule],
     controllers: [WardrobeController],
     providers: [WardrobeService],
     exports: [WardrobeService],

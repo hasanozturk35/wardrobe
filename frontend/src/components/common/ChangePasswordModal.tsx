@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react';
-import { API_URL } from '../../config';
+import { api } from '../../lib/api';
 
 interface Props {
     isOpen: boolean;
@@ -47,25 +47,11 @@ export const ChangePasswordModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/auth/change-password`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ currentPassword, newPassword }),
-            });
-
-            if (res.ok) {
-                setSuccess(true);
-                setTimeout(() => handleClose(), 2000);
-            } else {
-                const data = await res.json();
-                setError(data.message || 'Bir hata oluştu.');
-            }
-        } catch {
-            setError('Bağlantı hatası. Tekrar dene.');
+            await api.post('/auth/change-password', { currentPassword, newPassword });
+            setSuccess(true);
+            setTimeout(() => handleClose(), 2000);
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Bir hata oluştu.');
         } finally {
             setLoading(false);
         }

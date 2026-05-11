@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, UserPlus, UserCheck, Grid3X3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_URL, getImageUrl } from '../../config';
+import { getImageUrl } from '../../config';
+import { api } from '../../lib/api';
 import { useAuthStore } from '../../store/authStore';
 
 interface PublicOutfit {
@@ -39,12 +40,8 @@ const UserProfileSheet: React.FC<Props> = ({ userId, onClose }) => {
         if (!userId) return;
         setLoading(true);
         setProfile(null);
-        const token = localStorage.getItem('token');
-        fetch(`${API_URL}/users/${userId}/public`, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then(r => r.json())
-            .then((data: PublicProfile) => {
+        api.get(`/users/${userId}/public`)
+            .then(({ data }) => {
                 setProfile(data);
                 setFollowing(data.isFollowing);
                 setFollowerCount(data.followerCount);
@@ -54,12 +51,7 @@ const UserProfileSheet: React.FC<Props> = ({ userId, onClose }) => {
 
     const handleFollow = async () => {
         if (!userId) return;
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/users/${userId}/follow`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
+        const { data } = await api.post(`/users/${userId}/follow`);
         setFollowing(data.following);
         setFollowerCount(prev => data.following ? prev + 1 : prev - 1);
     };

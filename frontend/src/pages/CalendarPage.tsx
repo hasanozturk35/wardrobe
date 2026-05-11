@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, Menu, Plus, X } from 'lucide-react';
-import { API_URL, getImageUrl } from '../config';
+import { getImageUrl } from '../config';
+import { api } from '../lib/api';
 import { useUIStore } from '../store/uiStore';
 
 interface Outfit {
@@ -33,16 +34,9 @@ const CalendarPage: React.FC = () => {
 
     const fetchEvents = async () => {
         try {
-            const token = localStorage.getItem('token');
-            // Format YYYY-MM
             const month = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-            const res = await fetch(`${API_URL}/calendar/events?month=${month}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setEvents(data);
-            }
+            const { data } = await api.get(`/calendar/events?month=${month}`);
+            setEvents(data);
         } catch (error) {
             console.error("Failed to fetch events:", error);
         }
@@ -51,14 +45,8 @@ const CalendarPage: React.FC = () => {
     const fetchLookbook = async () => {
         try {
             setLoadingOutfits(true);
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/outfits`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setLookbookOutfits(data);
-            }
+            const { data } = await api.get('/outfits');
+            setLookbookOutfits(data);
         } catch (error) {
             console.error("Failed to fetch lookbook", error);
         } finally {
@@ -77,30 +65,14 @@ const CalendarPage: React.FC = () => {
 
     const handleAssignOutfit = async (outfitId: string) => {
         if (!selectedDate) return;
-        
-        // ensure correct local date format without timezone shift issues (just send YYYY-MM-DD)
         const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}T12:00:00.000Z`;
-
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/calendar/events`, {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ outfitId, date: dateStr })
-            });
-
-            if (res.ok) {
-                setShowModal(false);
-                fetchEvents();
-                showToast('Kombin güne atandı.', 'success');
-            } else {
-                showToast('Kombin atanamadı, tekrar deneyin.', 'error');
-            }
-        } catch (error) {
-            showToast('Bir hata oluştu.', 'error');
+            await api.post('/calendar/events', { outfitId, date: dateStr });
+            setShowModal(false);
+            fetchEvents();
+            showToast('Kombin güne atandı.', 'success');
+        } catch {
+            showToast('Kombin atanamadı, tekrar deneyin.', 'error');
         }
     };
 
@@ -108,16 +80,10 @@ const CalendarPage: React.FC = () => {
         e.stopPropagation();
         if (pendingDeleteId === id) {
             try {
-                const token = localStorage.getItem('token');
-                const res = await fetch(`${API_URL}/calendar/events/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    setEvents(prev => prev.filter(ev => ev.id !== id));
-                    showToast('Kombin kaldırıldı.', 'success');
-                }
-            } catch (error) {
+                await api.delete(`/calendar/events/${id}`);
+                setEvents(prev => prev.filter(ev => ev.id !== id));
+                showToast('Kombin kaldırıldı.', 'success');
+            } catch {
                 showToast('Silme işlemi başarısız.', 'error');
             } finally {
                 setPendingDeleteId(null);

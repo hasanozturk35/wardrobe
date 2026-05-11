@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, useAnimation } f
 import { Heart, X, ArrowUpRight, Calendar, ShoppingBag, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '../store/uiStore';
-import { API_URL } from '../config';
+import { api } from '../lib/api';
 
 interface Product {
     id: string;
@@ -401,15 +401,9 @@ const DiscoverPage: React.FC = () => {
 
     const addToWardrobe = useCallback(async (product: Product) => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/wardrobe/items`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ category: product.category, brand: product.brand, imageUrl: product.imageUrl }),
-            });
-            if (res.ok) showToast(`${product.title} gardıroba eklendi!`);
-            else showToast('Eklenemedi.');
-        } catch { showToast('Bağlantı hatası.'); }
+            await api.post('/wardrobe/items', { category: product.category, brand: product.brand, imageUrl: product.imageUrl });
+            showToast(`${product.title} gardıroba eklendi!`);
+        } catch { showToast('Eklenemedi.'); }
     }, [showToast]);
 
     const tomorrow = new Date();

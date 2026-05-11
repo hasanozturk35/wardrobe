@@ -4,7 +4,8 @@ import { Heart, MessageCircle, Plus, X, Loader2, Send, ShoppingBag,
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
-import { API_URL, getImageUrl } from '../config';
+import { getImageUrl } from '../config';
+import { api } from '../lib/api';
 import { useUIStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import UserProfileSheet from '../components/social/UserProfileSheet';
@@ -98,30 +99,24 @@ const SocialFeedPage: React.FC = () => {
     const fetchFeed = async (occasion?: string) => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
             const params = occasion ? `?occasion=${encodeURIComponent(occasion)}` : '';
-            const res = await fetch(`${API_URL}/social/feed${params}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) setFeed(await res.json());
-            else showToast('Akış yüklenemedi.', 'error');
-        } catch { showToast('Bağlantı hatası.', 'error'); }
+            const { data } = await api.get(`/social/feed${params}`);
+            setFeed(data);
+        } catch { showToast('Akış yüklenemedi.', 'error'); }
         finally { setLoading(false); }
     };
 
     const fetchComments = async (postId: string) => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/social/comments/${postId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) setComments(await res.json());
+            const { data } = await api.get(`/social/comments/${postId}`);
+            setComments(data);
         } catch { /* yorum yüklenemedi — sessiz hata */ }
     };
 
     useEffect(() => {
         fetchFeed();
-        const socket: Socket = io(API_URL, { transports: ['websocket', 'polling'] });
+        const socketUrl = (api.defaults.baseURL || '').replace(/\/$/, '');
+        const socket: Socket = io(socketUrl, { transports: ['websocket', 'polling'] });
         socket.on('new-post', (post: FeedItem) => {
             setFeed(prev => [post, ...prev]);
             showToast('Yeni bir kombin paylaşıldı!');
@@ -152,8 +147,7 @@ const SocialFeedPage: React.FC = () => {
         const was = likedPosts.has(postId);
         setLikedPosts(prev => { const n = new Set(prev); was ? n.delete(postId) : n.add(postId); return n; });
         try {
-            const token = localStorage.getItem('token');
-            await fetch(`${API_URL}/social/like/${postId}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+            await api.post(`/social/like/${postId}`);
         } catch {
             setLikedPosts(prev => { const n = new Set(prev); was ? n.add(postId) : n.delete(postId); return n; });
         }
@@ -161,12 +155,7 @@ const SocialFeedPage: React.FC = () => {
 
     const handleFollowUser = async (userId: string) => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/users/${userId}/follow`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
+            const { data } = await api.post(`/users/${userId}/follow`);
             setFollowingUsers(prev => {
                 const n = new Set(prev);
                 data.following ? n.add(userId) : n.delete(userId);
@@ -180,15 +169,9 @@ const SocialFeedPage: React.FC = () => {
         if (!newComment.trim() || !activeCommentsPostId || submittingComment) return;
         setSubmittingComment(true);
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/social/comments/${activeCommentsPostId}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: newComment.trim() })
-            });
-            if (res.ok) setNewComment('');
-            else showToast('Yorum gönderilemedi.', 'error');
-        } catch { showToast('Bağlantı hatası.', 'error'); }
+            await api.post(`/social/comments/${activeCommentsPostId}`, { content: newComment.trim() });
+            setNewComment('');
+        } catch { showToast('Yorum gönderilemedi.', 'error'); }
         finally { setSubmittingComment(false); }
     };
 
