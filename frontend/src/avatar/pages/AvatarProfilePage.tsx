@@ -5,7 +5,8 @@ import {
     ChevronDown, Shirt, Check, Plus, Clock, Trash2,
     MessageSquare, ChevronLeft
 } from 'lucide-react';
-import { API_URL, getImageUrl } from '../../config';
+import { getImageUrl } from '../../config';
+import { api } from '../../lib/api';
 import { useWardrobeStore } from '../../store/wardrobeStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -224,7 +225,6 @@ const StyleAssistantPage: React.FC = () => {
         setSending(true);
 
         try {
-            const token = localStorage.getItem('token');
             let imageBase64: string | undefined;
 
             if (capturedFile) {
@@ -240,12 +240,7 @@ const StyleAssistantPage: React.FC = () => {
                 .map(m => ({ role: m.role, content: m.text }));
 
             const gender = localStorage.getItem('userGender') || 'Unisex';
-            const res = await fetch(`${API_URL}/ai/chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ message: text, imageBase64, history, gender }),
-            });
-            const data = await res.json();
+            const { data } = await api.post('/ai/chat', { message: text, imageBase64, history, gender });
 
             const suggestedItems = (data.suggestedOutfitIds || [])
                 .map((id: string) => items.find(i => i.id === id))

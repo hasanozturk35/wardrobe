@@ -49,7 +49,6 @@ async function removeBackground(fileBuffer: Buffer): Promise<Buffer | null> {
 export class WardrobeController {
     constructor(
         private readonly wardrobeService: WardrobeService,
-        private readonly aiService: AiService,
         private readonly storage: StorageProvider,
     ) { }
 

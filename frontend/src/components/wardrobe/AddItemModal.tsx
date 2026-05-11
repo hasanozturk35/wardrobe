@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, Check, Sparkles } from 'lucide-react';
-import { API_URL } from '../../config';
+import { api } from '../../lib/api';
 import { useUIStore } from '../../store/uiStore';
 
 interface AddItemModalProps {
@@ -61,26 +61,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
     const analyzeImageWithAI = async (file: File) => {
         setIsAnalyzing(true);
         try {
-            const formData = new FormData();
-            formData.append('image', file);
-
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/ai/analyze-image`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData
-            });
-
-            if (res.ok) {
-                const result = await res.json();
-                if (result.category || result.colors) {
-                    setFormData(prev => ({
-                        ...prev,
-                        category: result.category || prev.category,
-                        colors: result.colors || prev.colors,
-                        gender: result.gender || prev.gender,
-                    }));
-                }
+            const fd = new FormData();
+            fd.append('image', file);
+            const { data: result } = await api.post('/ai/analyze-image', fd);
+            if (result.category || result.colors) {
+                setFormData(prev => ({
+                    ...prev,
+                    category: result.category || prev.category,
+                    colors: result.colors || prev.colors,
+                    gender: result.gender || prev.gender,
+                }));
             }
         } catch (error) {
             console.error('AI Analysis failed:', error);
@@ -132,43 +122,25 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
         setLoading(true);
 
         try {
-            const token = localStorage.getItem('token');
-
             if (editItem) {
-                // Edit: JSON gönder (FilesInterceptor yok, multipart parse edilmez)
-                const response = await fetch(`${API_URL}/wardrobe/items/${editItem.id}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        category: formData.category,
-                        brand: formData.brand,
-                        gender: formData.gender,
-                        colors: formData.colors,
-                        seasons: formData.seasons,
-                    }),
+                await api.post(`/wardrobe/items/${editItem.id}`, {
+                    category: formData.category,
+                    brand: formData.brand,
+                    gender: formData.gender,
+                    colors: formData.colors,
+                    seasons: formData.seasons,
                 });
-                if (response.ok) { onSuccess(); onClose(); }
-                else { showToast('Güncelleme sırasında bir hata oluştu.', 'error'); }
+                onSuccess(); onClose();
             } else {
-                // Yeni ekleme: FormData (foto yükleme gerekli)
-                const data = new FormData();
-                data.append('category', formData.category);
-                data.append('brand', formData.brand);
-                data.append('gender', formData.gender);
-                formData.colors.forEach(c => data.append('colors', c));
-                formData.seasons.forEach(s => data.append('seasons', s));
-                images.forEach(img => data.append('photos', img));
-
-                const response = await fetch(`${API_URL}/wardrobe/items`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: data,
-                });
-                if (response.ok) { onSuccess(); onClose(); }
-                else { showToast('Ekleme sırasında bir hata oluştu.', 'error'); }
+                const fd = new FormData();
+                fd.append('category', formData.category);
+                fd.append('brand', formData.brand);
+                fd.append('gender', formData.gender);
+                formData.colors.forEach(c => fd.append('colors', c));
+                formData.seasons.forEach(s => fd.append('seasons', s));
+                images.forEach(img => fd.append('photos', img));
+                await api.post('/wardrobe/items', fd);
+                onSuccess(); onClose();
             }
         } catch (error) {
             console.error('Operation failed:', error);

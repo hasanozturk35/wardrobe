@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import { useWardrobeStore } from '../store/wardrobeStore';
 import { useUIStore } from '../store/uiStore';
-import { getImageUrl, API_URL } from '../config';
+import { getImageUrl } from '../config';
+import { api } from '../lib/api';
 import { AddItemModal } from '../components/wardrobe/AddItemModal';
 
 const CATEGORIES = ['Hepsi', 'Üst Giyim', 'Alt Giyim', 'Dış Giyim', 'Ayakkabı', 'Aksesuar'];
@@ -169,12 +170,7 @@ const WardrobePage: React.FC = () => {
     const saveOutfit = async () => {
         if (!outfitItems.length) return;
         try {
-            const token = localStorage.getItem('token');
-            await fetch(`${API_URL}/outfits`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: `Kombin ${new Date().toLocaleDateString('tr')}`, items: outfitItems.map(i => ({ garmentItemId: i.id })) }),
-            });
+            await api.post('/outfits', { name: `Kombin ${new Date().toLocaleDateString('tr')}`, items: outfitItems.map(i => ({ garmentItemId: i.id })) });
             showToast('Kombin kaydedildi! 🎉');
             setIsOutfitBuilderOpen(false);
             setOutfitItems([]);
@@ -217,14 +213,9 @@ const WardrobePage: React.FC = () => {
         if (!aiOutfitCards.length) return;
         setSavingAiOutfit(true);
         try {
-            const token = localStorage.getItem('token');
-            await fetch(`${API_URL}/outfits`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: `Kombin ${new Date().toLocaleDateString('tr')}`,
-                    items: aiOutfitCards.map(i => ({ garmentItemId: i.id })),
-                }),
+            await api.post('/outfits', {
+                name: `Kombin ${new Date().toLocaleDateString('tr')}`,
+                items: aiOutfitCards.map(i => ({ garmentItemId: i.id })),
             });
             showToast('Kombin Lookbook\'a kaydedildi! 🎉');
             navigate('/lookbook#kombinler');
@@ -239,16 +230,11 @@ const WardrobePage: React.FC = () => {
         if (!tryOnResult?.imageUrl) return;
         setSavingToLookbook(true);
         try {
-            const token = localStorage.getItem('token');
-            await fetch(`${API_URL}/outfits`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: `AI Try-On · ${itemName || 'Parça'}`,
-                    coverUrl: tryOnResult.imageUrl,
-                    isTryOn: true,
-                    items: [],
-                }),
+            await api.post('/outfits', {
+                name: `AI Try-On · ${itemName || 'Parça'}`,
+                coverUrl: tryOnResult.imageUrl,
+                isTryOn: true,
+                items: [],
             });
             showToast('Lookbook\'a kaydedildi ✓');
         } catch { showToast('Kaydedilemedi.'); }
@@ -264,13 +250,7 @@ const WardrobePage: React.FC = () => {
         setTryOnStep(0);
         const stepInterval = setInterval(() => setTryOnStep(s => s < 3 ? s + 1 : s), 8000);
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/ai/try-on`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ personImageUrl: selfieDataUrl, garmentImageUrl, category: item.category, brand: item.brand || undefined }),
-            });
-            const data = await res.json();
+            const { data } = await api.post('/ai/try-on', { personImageUrl: selfieDataUrl, garmentImageUrl, category: item.category, brand: item.brand || undefined });
             setTryOnResult(data);
             if (data.imageUrl) setTryOnFullscreen(true);
         } catch { showToast('Try-On başarısız oldu.'); }
@@ -283,19 +263,13 @@ const WardrobePage: React.FC = () => {
         setAiExplanation('AI Stilist dolabını analiz ediyor...');
         const city  = cityOverride  ?? activeCity.city;
         const style = styleOverride ?? activeCity.style;
-        const token = localStorage.getItem('token');
         // Frontend'de de cinsiyet filtrele — sadece uyumlu parçaları gönder
         const genderItems = items.filter((i: any) =>
             !i.gender || i.gender === 'Unisex' || i.gender === userGender
         );
         const itemsToSend = genderItems.length >= 2 ? genderItems : items;
-        fetch(`${API_URL}/ai/generate-outfit-from-list`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ items: itemsToSend, city, style, gender: userGender }),
-        })
-        .then(r => r.json())
-        .then(data => {
+        api.post('/ai/generate-outfit-from-list', { items: itemsToSend, city, style, gender: userGender })
+        .then(({ data }) => {
             if (data.outfitIds) {
                 let cards: any[] = data.outfitIds.map((id: string) => items.find(i => i.id === id)).filter(Boolean);
                 if (cards.length < 3) {
