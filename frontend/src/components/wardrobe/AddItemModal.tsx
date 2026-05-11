@@ -77,7 +77,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, onS
                     setFormData(prev => ({
                         ...prev,
                         category: result.category || prev.category,
-                        colors: result.colors || prev.colors
+                        colors: result.colors || prev.colors,
+                        gender: result.gender || prev.gender,
                     }));
                 }
             }
