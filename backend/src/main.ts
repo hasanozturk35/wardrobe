@@ -3,6 +3,8 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './common/logger.interceptor';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { join } from 'path';
+import * as express from 'express';
 
 const REQUIRED_ENV_VARS = [
   'DATABASE_URL',
@@ -60,6 +62,9 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
   app.useWebSocketAdapter(new IoAdapter(app));
+
+  // Serve local uploads (only used when Cloudinary is not configured)
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }

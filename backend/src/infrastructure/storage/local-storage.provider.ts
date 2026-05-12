@@ -16,8 +16,8 @@ export class LocalStorageProvider extends StorageProvider {
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(fullPath, file.buffer);
       this.logger.log(`File uploaded to: ${fullPath}`);
-      return path; // Return relative path for DB
-    } catch (error) {
+      return `/uploads/${path}`;
+    } catch (error: any) {
       this.logger.error(`Error uploading file to local storage: ${error.message}`);
       throw error;
     }
